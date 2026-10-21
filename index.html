@@ -3,65 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OmniCalc Pro - Minimalist Edition</title>
+    <title>OmniCalc Pro</title>
 
-    <!-- Mobile App Capabilities -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#f1f3f6">
-    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22OmniCalc%20Pro%22%2C%22short_name%22%3A%22OmniCalc%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f1f3f6%22%2C%22theme_color%22%3A%22%23f97316%22%7D">
 
-    <!-- Tailwind CSS -->
+    <!-- High-Speed Cloudflare CDNs (Never Blocked) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & Dependencies -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.8/babel.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
         
-        * {
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-        }
-
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f1f3f6;
-            touch-action: manipulation;
-            min-height: 100vh;
-            min-height: -webkit-fill-available;
-        }
-
-        .font-mono {
-            font-family: 'JetBrains Mono', monospace;
-            font-feature-settings: "tnum" 1, "zero" 1;
-        }
-
+        * { -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f3f6; touch-action: manipulation; margin: 0; padding: 0; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Tactile circle button animation */
         .btn-circle {
             aspect-ratio: 1 / 1;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 9999px;
-            transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.1s ease, filter 0.1s ease;
+            outline: none;
+            border: none;
+            cursor: pointer;
         }
         .btn-circle:active {
             transform: scale(0.92);
-            filter: brightness(0.94);
+            filter: brightness(0.92);
         }
     </style>
 </head>
-<body class="text-slate-800 antialiased selection:bg-orange-500 selection:text-white">
-    <div id="root"></div>
+<body class="text-slate-800 antialiased">
+    <div id="root">
+        <!-- Instant loading placeholder so you never see a blank screen -->
+        <div style="height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#64748b;font-size:14px;">
+            Loading OmniCalc Pro...
+        </div>
+    </div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
@@ -74,7 +62,7 @@
 
         const triggerHaptic = () => {
             if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
-                window.navigator.vibrate(10);
+                try { window.navigator.vibrate(10); } catch(e) {}
             }
         };
 
@@ -84,8 +72,7 @@
             volume: { l: 1, ml: 0.001, gal: 3.78541, qt: 0.94635, cup: 0.24, floz: 0.02957 },
             area: { sqm: 1, sqft: 0.0929, sqin: 0.000645, acre: 4046.86, hectare: 10000 },
             temperature: { c: 'C', f: 'F', k: 'K' },
-            speed: { kmh: 1, mps: 3.6, mph: 1.60934, knot: 1.852 },
-            digital: { b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776 }
+            speed: { kmh: 1, mps: 3.6, mph: 1.60934, knot: 1.852 }
         };
 
         function App() {
@@ -105,13 +92,6 @@
             const [convTo, setConvTo] = useState('ft');
             const [convVal, setConvVal] = useState('1');
 
-            // --- MEASUREMENT STATE ---
-            const [capturedImage, setCapturedImage] = useState(null);
-            const [calibMode, setCalibMode] = useState('room_15ft');
-            const [points, setPoints] = useState([]);
-            const [measResult, setMeasResult] = useState(null);
-            const [cameraActive, setCameraActive] = useState(false);
-
             // --- FINANCE STATE (INR) ---
             const [finTab, setFinTab] = useState('loan');
             const [loanPrincipal, setLoanPrincipal] = useState('2500000');
@@ -123,7 +103,6 @@
             const [invMonthly, setInvMonthly] = useState('5000');
             const [gstBase, setGstBase] = useState('10000');
             const [gstRate, setGstRate] = useState('18');
-            const [gstType, setGstType] = useState('exclusive');
 
             // --- HEALTH STATE ---
             const [userHeight, setUserHeight] = useState('175');
@@ -134,28 +113,6 @@
             // --- DATE STATE ---
             const [dob, setDob] = useState('1998-05-15');
             const [cmpDate, setCmpDate] = useState(new Date().toISOString().split('T')[0]);
-
-            const fileRef = useRef(null);
-            const canvasRef = useRef(null);
-            const videoRef = useRef(null);
-
-            // Keyboard listeners
-            useEffect(() => {
-                const handleKeyDown = (e) => {
-                    if (activeTab !== 'calc') return;
-                    if ((e.key >= '0' && e.key <= '9') || e.key === '.') handleCalc(e.key);
-                    else if (e.key === '+') handleCalc('+');
-                    else if (e.key === '-') handleCalc('-');
-                    else if (e.key === '*') handleCalc('×');
-                    else if (e.key === '/') handleCalc('÷');
-                    else if (e.key === '%') handleCalc('%');
-                    else if (e.key === 'Enter' || e.key === '=') handleCalc('=');
-                    else if (e.key === 'Backspace') handleCalc('⌫');
-                    else if (e.key === 'Escape') handleCalc('AC');
-                };
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            });
 
             const handleCalc = (btn) => {
                 triggerHaptic();
@@ -214,26 +171,11 @@
                     if (op === 'sqr') res = Math.pow(v, 2);
                     if (op === 'cube') res = Math.pow(v, 3);
                     if (op === 'inv') res = 1 / v;
-                    if (op === 'fact') {
-                        if (v < 0 || v > 150) throw new Error('Range');
-                        let f = 1;
-                        for (let i = 2; i <= Math.floor(v); i++) f *= i;
-                        res = f;
-                    }
-                    const finalRes = parseFloat(res.toFixed(8)).toString();
-                    setHistory(prev => [{ exp: `${op}(${display})`, res: finalRes }, ...prev.slice(0, 19)]);
-                    setDisplay(finalRes);
+                    setDisplay(parseFloat(res.toFixed(8)).toString());
                 } catch {
                     setDisplay('Error');
                 }
             };
-
-            // Conversions
-            useEffect(() => {
-                const units = Object.keys(CONVERSION_RATES[convCat]);
-                setConvFrom(units[0]);
-                setConvTo(units[1] || units[0]);
-            }, [convCat]);
 
             const runConversion = () => {
                 const val = parseFloat(convVal);
@@ -251,109 +193,6 @@
                 const catMap = CONVERSION_RATES[convCat];
                 if (!catMap) return '0';
                 return parseFloat(((val * catMap[convFrom]) / catMap[convTo]).toFixed(6));
-            };
-
-            // AR Camera Handlers
-            const startCamera = async () => {
-                try {
-                    setCapturedImage(null); setPoints([]); setMeasResult(null); setCameraActive(true);
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-                    });
-                    if (videoRef.current) videoRef.current.srcObject = stream;
-                } catch {
-                    alert('Camera could not be accessed. You can upload an image instead.');
-                    setCameraActive(false);
-                }
-            };
-
-            const takeSnapshot = () => {
-                triggerHaptic();
-                if (!videoRef.current) return;
-                const vid = videoRef.current;
-                const canvas = document.createElement('canvas');
-                canvas.width = vid.videoWidth || 1280;
-                canvas.height = vid.videoHeight || 720;
-                canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
-                setCapturedImage(canvas.toDataURL('image/jpeg'));
-                if (vid.srcObject) vid.srcObject.getTracks().forEach(t => t.stop());
-                setCameraActive(false);
-            };
-
-            const handleFileImage = (e) => {
-                const f = e.target.files[0];
-                if (f) {
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                        setCapturedImage(ev.target.result);
-                        setPoints([]);
-                        setMeasResult(null);
-                        setCameraActive(false);
-                    };
-                    reader.readAsDataURL(f);
-                }
-            };
-
-            useEffect(() => {
-                if (!capturedImage || !canvasRef.current) return;
-                const canvas = canvasRef.current;
-                const ctx = canvas.getContext('2d');
-                const img = new Image();
-                img.onload = () => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    if (points.length === 2) {
-                        ctx.beginPath();
-                        ctx.moveTo(points[0].x, points[0].y);
-                        ctx.lineTo(points[1].x, points[1].y);
-                        ctx.strokeStyle = '#f97316';
-                        ctx.lineWidth = Math.max(4, canvas.width / 140);
-                        ctx.stroke();
-                    }
-                    points.forEach((pt, i) => {
-                        ctx.fillStyle = i === 0 ? '#10b981' : '#f43f5e';
-                        ctx.beginPath();
-                        ctx.arc(pt.x, pt.y, Math.max(10, canvas.width / 70), 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = Math.max(3, canvas.width / 200);
-                        ctx.stroke();
-                    });
-                };
-                img.src = capturedImage;
-            }, [capturedImage, points]);
-
-            const onCanvasClick = (e) => {
-                triggerHaptic();
-                if (!capturedImage) return;
-                const canvas = canvasRef.current;
-                const rect = canvas.getBoundingClientRect();
-                const sx = canvas.width / rect.width;
-                const sy = canvas.height / rect.height;
-                const x = (e.clientX - rect.left) * sx;
-                const y = (e.clientY - rect.top) * sy;
-
-                let next = [...points, { x, y }];
-                if (next.length > 2) next = [{ x, y }];
-                setPoints(next);
-
-                if (next.length === 2) {
-                    const pixelDist = Math.hypot(next[1].x - next[0].x, next[1].y - next[0].y);
-                    const scopes = { card_3in: 0.28, desk_4ft: 4.0, room_15ft: 15.0, room_20ft: 20.0, field_60ft: 60.0 };
-                    const feetPerPixel = (scopes[calibMode] || 15.0) / Math.hypot(canvas.width, canvas.height);
-                    const lenFt = pixelDist * feetPerPixel;
-                    const lenM = lenFt * 0.3048;
-                    const estAreaSqFt = lenFt * (lenFt * 0.7);
-                    setMeasResult({
-                        ft: lenFt.toFixed(2),
-                        in: (lenFt * 12).toFixed(1),
-                        m: lenM.toFixed(2),
-                        cm: (lenM * 100).toFixed(1),
-                        sqFt: estAreaSqFt.toFixed(2),
-                        sqM: (estAreaSqFt * 0.092903).toFixed(2)
-                    });
-                }
             };
 
             const computeHealth = () => {
@@ -386,42 +225,36 @@
                 const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
                 let nextBday = new Date(end.getFullYear(), start.getMonth(), start.getDate());
                 if (nextBday < end) nextBday = new Date(end.getFullYear() + 1, start.getMonth(), start.getDate());
-                return { y, m, d, totalDays, totalWeeks: Math.floor(totalDays / 7), daysToBday: Math.ceil((nextBday - end) / (1000 * 60 * 60 * 24)) };
+                return { y, m, d, totalDays, daysToBday: Math.ceil((nextBday - end) / (1000 * 60 * 60 * 24)) };
             };
             const age = calculateAge();
 
             return (
                 <div className="flex flex-col h-screen max-w-md mx-auto bg-[#f1f3f6] shadow-xl overflow-hidden border-x border-slate-200">
-                    {/* Top Native-Style Minimalist Bar */}
-                    <header className="pt-[env(safe-area-inset-top)] px-5 py-3 flex items-center justify-between text-slate-600 shrink-0">
+                    {/* Header */}
+                    <header className="px-5 py-3 flex items-center justify-between text-slate-600 shrink-0 border-b border-slate-200/60 bg-[#f1f3f6]">
                         <button
                             onClick={() => { triggerHaptic(); setCalcMode(calcMode === 'standard' ? 'scientific' : 'standard'); }}
                             className="p-2 hover:bg-slate-200 rounded-full transition"
-                            title="Toggle Scientific Mode"
+                            title="Scientific Mode"
                         >
-                            <i className="fa-solid fa-square-root-variable text-lg"></i>
+                            <i className="fa-solid fa-square-root-variable text-lg text-slate-700"></i>
                         </button>
-
-                        <div className="flex items-center space-x-3">
-                            <button
-                                onClick={() => { triggerHaptic(); setShowHistory(!showHistory); }}
-                                className="p-2 hover:bg-slate-200 rounded-full transition"
-                                title="History"
-                            >
-                                <i className="fa-solid fa-clock-rotate-left text-base"></i>
-                            </button>
-                            <span className="text-xs font-semibold text-slate-400">OmniCalc</span>
-                        </div>
+                        <span className="text-sm font-bold text-slate-700">OmniCalc Pro</span>
+                        <button
+                            onClick={() => { triggerHaptic(); setShowHistory(!showHistory); }}
+                            className="p-2 hover:bg-slate-200 rounded-full transition"
+                            title="History"
+                        >
+                            <i className="fa-solid fa-clock-rotate-left text-base text-slate-700"></i>
+                        </button>
                     </header>
 
-                    {/* Scrollable Container */}
+                    {/* Main Area */}
                     <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 flex flex-col justify-end">
-                        {/* ======================================= */}
-                        {/* 1. CALCULATOR (MATCHING SCREENSHOT)     */}
-                        {/* ======================================= */}
+                        {/* 1. CALCULATOR */}
                         {activeTab === 'calc' && (
                             <div className="space-y-4">
-                                {/* Display Canvas */}
                                 <div className="text-right px-3 py-2 min-h-[140px] flex flex-col justify-end">
                                     <div className="text-sm font-mono text-slate-400 overflow-x-auto whitespace-nowrap">
                                         {expression || '\u00A0'}
@@ -431,11 +264,10 @@
                                     </div>
                                 </div>
 
-                                {/* History Drawer */}
                                 {showHistory && (
-                                    <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 max-h-48 overflow-y-auto text-xs font-mono space-y-1.5 mb-2">
+                                    <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-200 max-h-44 overflow-y-auto text-xs font-mono space-y-1.5 mb-2">
                                         <div className="flex justify-between items-center pb-1 border-b border-slate-100 text-slate-400 font-sans">
-                                            <span className="font-semibold">Calculation History</span>
+                                            <span className="font-semibold">History</span>
                                             <button onClick={() => setHistory([])} className="text-orange-500 font-medium">Clear</button>
                                         </div>
                                         {history.length === 0 ? (
@@ -451,9 +283,8 @@
                                     </div>
                                 )}
 
-                                {/* Scientific Panel if Active */}
                                 {calcMode === 'scientific' && (
-                                    <div className="grid grid-cols-5 gap-2 bg-white/60 p-2.5 rounded-3xl border border-slate-200">
+                                    <div className="grid grid-cols-5 gap-2 bg-white/70 p-2.5 rounded-3xl border border-slate-200">
                                         {[
                                             { label: 'sin', act: () => handleScientific('sin') },
                                             { label: 'cos', act: () => handleScientific('cos') },
@@ -466,20 +297,15 @@
                                             { label: '1/x', act: () => handleScientific('inv') },
                                             { label: 'π', act: () => handleCalc('π') }
                                         ].map((b, i) => (
-                                            <button
-                                                key={i}
-                                                onClick={b.act}
-                                                className="py-2 rounded-xl bg-slate-200/80 text-xs font-semibold text-slate-700 active:scale-95 transition"
-                                            >
+                                            <button key={i} onClick={b.act} className="py-2 rounded-xl bg-slate-200/80 text-xs font-semibold text-slate-700 active:scale-95 transition">
                                                 {b.label}
                                             </button>
                                         ))}
                                     </div>
                                 )}
 
-                                {/* Main Keypad (Exact Layout from Screenshot) */}
+                                {/* Keypad matching screenshot */}
                                 <div className="grid grid-cols-4 gap-3.5 px-1">
-                                    {/* Row 1 */}
                                     <button onClick={() => handleCalc('AC')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-xl font-medium">AC</button>
                                     <button onClick={() => handleCalc('%')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-xl font-medium">%</button>
                                     <button onClick={() => handleCalc('⌫')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-xl">
@@ -487,25 +313,21 @@
                                     </button>
                                     <button onClick={() => handleCalc('÷')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-2xl font-normal">÷</button>
 
-                                    {/* Row 2 */}
                                     <button onClick={() => handleCalc('7')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">7</button>
                                     <button onClick={() => handleCalc('8')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">8</button>
                                     <button onClick={() => handleCalc('9')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">9</button>
                                     <button onClick={() => handleCalc('×')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-2xl font-normal">×</button>
 
-                                    {/* Row 3 */}
                                     <button onClick={() => handleCalc('4')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">4</button>
                                     <button onClick={() => handleCalc('5')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">5</button>
                                     <button onClick={() => handleCalc('6')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">6</button>
                                     <button onClick={() => handleCalc('-')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-2xl font-normal">−</button>
 
-                                    {/* Row 4 */}
                                     <button onClick={() => handleCalc('1')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">1</button>
                                     <button onClick={() => handleCalc('2')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">2</button>
                                     <button onClick={() => handleCalc('3')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">3</button>
                                     <button onClick={() => handleCalc('+')} className="btn-circle bg-[#e1e4ea] text-slate-800 text-2xl font-normal">+</button>
 
-                                    {/* Row 5 */}
                                     <button onClick={() => handleCalc('00')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-xl font-medium">00</button>
                                     <button onClick={() => handleCalc('0')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-medium">0</button>
                                     <button onClick={() => handleCalc('.')} className="btn-circle bg-white shadow-sm shadow-slate-200/60 text-slate-900 text-2xl font-bold">.</button>
@@ -514,74 +336,48 @@
                             </div>
                         )}
 
-                        {/* ======================================= */}
-                        {/* 2. CONVERTER                            */}
-                        {/* ======================================= */}
+                        {/* 2. CONVERTER */}
                         {activeTab === 'converter' && (
                             <div className="space-y-4 pt-4">
                                 <div className="flex overflow-x-auto space-x-2 py-1 no-scrollbar">
-                                    {[
-                                        { id: 'length', name: 'Length', icon: 'ruler' },
-                                        { id: 'mass', name: 'Mass', icon: 'weight-scale' },
-                                        { id: 'volume', name: 'Volume', icon: 'glass-water' },
-                                        { id: 'area', name: 'Area', icon: 'chart-area' },
-                                        { id: 'temperature', name: 'Temp', icon: 'temperature-high' },
-                                        { id: 'speed', name: 'Speed', icon: 'gauge-high' },
-                                        { id: 'digital', name: 'Data', icon: 'hard-drive' }
-                                    ].map(cat => (
+                                    {['length', 'mass', 'volume', 'area', 'temperature', 'speed'].map(cat => (
                                         <button
-                                            key={cat.id}
-                                            onClick={() => { triggerHaptic(); setConvCat(cat.id); }}
-                                            className={`px-4 py-2.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center space-x-1.5 transition ${
-                                                convCat === cat.id ? 'bg-[#ff9500] text-white shadow' : 'bg-white text-slate-600 border border-slate-200'
+                                            key={cat}
+                                            onClick={() => { triggerHaptic(); setConvCat(cat); }}
+                                            className={`px-4 py-2 rounded-full text-xs font-semibold capitalize whitespace-nowrap ${
+                                                convCat === cat ? 'bg-[#ff9500] text-white' : 'bg-white text-slate-600 border border-slate-200'
                                             }`}
                                         >
-                                            <i className={`fa-solid fa-${cat.icon}`}></i>
-                                            <span>{cat.name}</span>
+                                            {cat}
                                         </button>
                                     ))}
                                 </div>
-
                                 <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                                    <div>
-                                        <label className="text-xs font-medium text-slate-500">Value</label>
-                                        <input
-                                            type="number"
-                                            value={convVal}
-                                            onChange={e => setConvVal(e.target.value)}
-                                            className="w-full mt-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xl font-mono text-slate-900 focus:outline-none focus:border-orange-500"
-                                        />
-                                    </div>
+                                    <input
+                                        type="number"
+                                        value={convVal}
+                                        onChange={e => setConvVal(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xl font-mono text-slate-900 focus:outline-none"
+                                    />
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500">From</label>
-                                            <select
-                                                value={convFrom}
-                                                onChange={e => setConvFrom(e.target.value)}
-                                                className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold uppercase text-slate-700"
-                                            >
-                                                {Object.keys(CONVERSION_RATES[convCat]).map(u => (
-                                                    <option key={u} value={u}>{u.toUpperCase()}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-medium text-slate-500">To</label>
-                                            <select
-                                                value={convTo}
-                                                onChange={e => setConvTo(e.target.value)}
-                                                className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold uppercase text-slate-700"
-                                            >
-                                                {Object.keys(CONVERSION_RATES[convCat]).map(u => (
-                                                    <option key={u} value={u}>{u.toUpperCase()}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                        <select
+                                            value={convFrom}
+                                            onChange={e => setConvFrom(e.target.value)}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold uppercase text-slate-700"
+                                        >
+                                            {Object.keys(CONVERSION_RATES[convCat]).map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                                        </select>
+                                        <select
+                                            value={convTo}
+                                            onChange={e => setConvTo(e.target.value)}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold uppercase text-slate-700"
+                                        >
+                                            {Object.keys(CONVERSION_RATES[convCat]).map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
+                                        </select>
                                     </div>
                                 </div>
-
                                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm text-center">
-                                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Result</div>
+                                    <div className="text-xs font-semibold text-slate-400 uppercase">Converted Result</div>
                                     <div className="text-3xl font-bold font-mono text-slate-900 mt-2">
                                         {runConversion()} <span className="text-sm font-sans text-orange-500 uppercase">{convTo}</span>
                                     </div>
@@ -589,119 +385,160 @@
                             </div>
                         )}
 
-                        {/* ======================================= */}
-                        {/* 3. AR MEASUREMENT                       */}
-                        {/* ======================================= */}
-                        {activeTab === 'measure' && (
+                        {/* 3. FINANCE */}
+                        {activeTab === 'finance' && (
                             <div className="space-y-4 pt-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">Photo / AR Scope</h2>
-                                        <p className="text-[11px] text-slate-500">Tap 2 points to measure real-world distance</p>
-                                    </div>
-                                    <select
-                                        value={calibMode}
-                                        onChange={e => setCalibMode(e.target.value)}
-                                        className="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium"
-                                    >
-                                        <option value="card_3in">Standard Card (3.37 in)</option>
-                                        <option value="desk_4ft">Desk Span (4 ft)</option>
-                                        <option value="room_15ft">Bedroom (15 ft)</option>
-                                        <option value="room_20ft">Living Room (20 ft)</option>
-                                        <option value="field_60ft">Outdoor (60 ft)</option>
-                                    </select>
+                                <div className="grid grid-cols-3 gap-1 bg-slate-200/80 p-1 rounded-full text-xs">
+                                    <button onClick={() => setFinTab('loan')} className={`py-2 rounded-full font-semibold ${finTab === 'loan' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}>Loan EMI</button>
+                                    <button onClick={() => setFinTab('sip')} className={`py-2 rounded-full font-semibold ${finTab === 'sip' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}>SIP / Growth</button>
+                                    <button onClick={() => setFinTab('gst')} className={`py-2 rounded-full font-semibold ${finTab === 'gst' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}>GST Tax</button>
                                 </div>
 
-                                <div className="relative w-full aspect-[4/3] bg-slate-200 rounded-3xl border border-slate-300 overflow-hidden flex items-center justify-center">
-                                    {cameraActive ? (
-                                        <div className="relative w-full h-full flex flex-col justify-end">
-                                            <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover"></video>
-                                            <div className="relative z-10 p-4 flex justify-center bg-gradient-to-t from-black/60 to-transparent">
-                                                <button
-                                                    onClick={takeSnapshot}
-                                                    className="w-14 h-14 rounded-full border-4 border-white bg-orange-500 flex items-center justify-center shadow-lg active:scale-95 transition"
-                                                >
-                                                    <i className="fa-solid fa-camera text-white text-lg"></i>
-                                                </button>
+                                {finTab === 'loan' && (
+                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                                        <label className="text-xs text-slate-500 font-medium">Loan Amount (₹)</label>
+                                        <input type="number" value={loanPrincipal} onChange={e => setLoanPrincipal(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-xs text-slate-500 font-medium">Interest (% p.a.)</label>
+                                                <input type="number" step="0.1" value={loanInterest} onChange={e => setLoanInterest(e.target.value)} className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-500 font-medium">Tenure (Years)</label>
+                                                <input type="number" value={loanYears} onChange={e => setLoanYears(e.target.value)} className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
                                             </div>
                                         </div>
-                                    ) : capturedImage ? (
-                                        <canvas
-                                            ref={canvasRef}
-                                            onClick={onCanvasClick}
-                                            className="w-full h-full object-contain cursor-crosshair"
-                                        />
-                                    ) : (
-                                        <div className="text-center p-6 space-y-3">
-                                            <div className="w-12 h-12 mx-auto rounded-full bg-white shadow-sm flex items-center justify-center text-orange-500 text-xl">
-                                                <i className="fa-solid fa-camera"></i>
+                                        <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200/60 mt-2">
+                                            <div className="text-[11px] text-orange-600 font-bold uppercase">Monthly EMI</div>
+                                            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
+                                                {(() => {
+                                                    const p = parseFloat(loanPrincipal) || 0;
+                                                    const r = (parseFloat(loanInterest) || 0) / 12 / 100;
+                                                    const n = (parseFloat(loanYears) || 0) * 12;
+                                                    if (!p || !r || !n) return '₹0.00';
+                                                    return formatINR((p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1));
+                                                })()}
                                             </div>
-                                            <div className="text-xs text-slate-500">Capture scene or select a reference image</div>
-                                            <div className="flex justify-center space-x-2 pt-1">
-                                                <button onClick={startCamera} className="px-4 py-2 bg-orange-500 text-white rounded-full text-xs font-semibold shadow">
-                                                    Open Cam
-                                                </button>
-                                                <button onClick={() => fileRef.current.click()} className="px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-full text-xs font-semibold">
-                                                    Upload File
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <input type="file" ref={fileRef} onChange={handleFileImage} accept="image/*" className="hidden" />
-                                </div>
-
-                                {capturedImage && (
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-500">Pins: <strong className="text-orange-500 font-mono">{points.length} / 2</strong></span>
-                                        <div className="space-x-2">
-                                            <button onClick={() => { setPoints([]); setMeasResult(null); }} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700">Clear</button>
-                                            <button onClick={() => fileRef.current.click()} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700">New Pic</button>
                                         </div>
                                     </div>
                                 )}
 
-                                {measResult && (
-                                    <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-2 gap-2.5">
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <div className="text-[10px] text-slate-400 font-medium">Imperial Distance</div>
-                                            <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.ft} ft ({measResult.in}")</div>
+                                {finTab === 'sip' && (
+                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                                        <label className="text-xs text-slate-500 font-medium">Monthly SIP (₹)</label>
+                                        <input type="number" value={invMonthly} onChange={e => setInvMonthly(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input type="number" placeholder="Return %" value={invAnnual} onChange={e => setInvAnnual(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                            <input type="number" placeholder="Years" value={invYears} onChange={e => setInvYears(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
                                         </div>
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <div className="text-[10px] text-slate-400 font-medium">Metric Distance</div>
-                                            <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.m} m ({measResult.cm} cm)</div>
+                                        <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200 mt-2">
+                                            <div className="text-[11px] text-orange-600 font-bold uppercase">Estimated Corpus</div>
+                                            <div className="text-2xl font-bold font-mono text-slate-900 mt-1">
+                                                {(() => {
+                                                    const pmt = parseFloat(invMonthly) || 0;
+                                                    const r = (parseFloat(invAnnual) || 0) / 100 / 12;
+                                                    const n = (parseFloat(invYears) || 0) * 12;
+                                                    if (!n) return '₹0.00';
+                                                    return formatINR(r > 0 ? pmt * ((Math.pow(1 + r, n) - 1) / r) : pmt * n);
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {finTab === 'gst' && (
+                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                                        <label className="text-xs text-slate-500 font-medium">Base Amount (₹)</label>
+                                        <input type="number" value={gstBase} onChange={e => setGstBase(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                        <div className="flex space-x-2">
+                                            {['5', '12', '18', '28'].map(rate => (
+                                                <button key={rate} onClick={() => setGstRate(rate)} className={`flex-1 py-1.5 rounded-full text-xs font-semibold ${gstRate === rate ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-700'}`}>{rate}%</button>
+                                            ))}
+                                        </div>
+                                        <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200 mt-2">
+                                            <div className="text-xs text-slate-500">GST: <strong>{formatINR((parseFloat(gstBase) * parseFloat(gstRate)) / 100)}</strong></div>
+                                            <div className="text-lg font-bold font-mono text-slate-900 mt-1">Total: {formatINR(parseFloat(gstBase) * (1 + parseFloat(gstRate) / 100))}</div>
                                         </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* ======================================= */}
-                        {/* 4. FINANCIAL SUITE (INR ₹)               */}
-                        {/* ======================================= */}
-                        {activeTab === 'finance' && (
+                        {/* 4. HEALTH */}
+                        {activeTab === 'health' && (
                             <div className="space-y-4 pt-4">
-                                <div className="grid grid-cols-3 gap-1 bg-slate-200/80 p-1 rounded-full text-xs">
-                                    <button
-                                        onClick={() => { triggerHaptic(); setFinTab('loan'); }}
-                                        className={`py-2 rounded-full font-semibold transition ${finTab === 'loan' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}
-                                    >
-                                        Loan EMI
-                                    </button>
-                                    <button
-                                        onClick={() => { triggerHaptic(); setFinTab('sip'); }}
-                                        className={`py-2 rounded-full font-semibold transition ${finTab === 'sip' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}
-                                    >
-                                        SIP / Growth
-                                    </button>
-                                    <button
-                                        onClick={() => { triggerHaptic(); setFinTab('gst'); }}
-                                        className={`py-2 rounded-full font-semibold transition ${finTab === 'gst' ? 'bg-white text-slate-900 shadow' : 'text-slate-600'}`}
-                                    >
-                                        GST & Tax
-                                    </button>
-                                </div>
-
-                                {finTab === 'loan' && (
-                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3.5">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                                    <div className="grid grid-cols-2 gap-2.5">
                                         <div>
-                                            <label className="text-xs text-slate-500 font-medium">Principal Amount (₹)</label>
+                                            <label className="text-xs text-slate-500 font-medium">Height (cm)</label>
+                                            <input type="number" value={userHeight} onChange={e => setUserHeight(e.target.value)} className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 font-medium">Weight (kg)</label>
+                                            <input type="number" value={userWeight} onChange={e => setUserWeight(e.target.value)} className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm font-mono text-slate-900" />
+                                        </div>
+                                    </div>
+                                </div>
+                                {health && (
+                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs text-slate-400 font-medium">Body Mass Index (BMI)</div>
+                                            <div className="text-3xl font-extrabold font-mono text-slate-900 mt-0.5">{health.bmi}</div>
+                                            <div className={`text-xs font-semibold mt-1 ${health.col}`}>{health.cat}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-[11px] text-slate-400">Daily BMR: <strong className="text-slate-800">{health.bmr} kcal</strong></div>
+                                            <div className="text-[11px] text-slate-400 mt-1">Water Goal: <strong className="text-orange-500">{health.water} L</strong></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 5. AGE */}
+                        {activeTab === 'date' && (
+                            <div className="space-y-4 pt-4">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                                    <label className="text-xs text-slate-500 font-medium">Date of Birth</label>
+                                    <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-sm text-slate-800" />
+                                </div>
+                                {age && (
+                                    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm text-center">
+                                        <div className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Exact Age</div>
+                                        <div className="text-2xl font-bold text-slate-900 mt-1">{age.y} yrs {age.m} mos {age.d} days</div>
+                                        <div className="text-xs text-orange-500 font-medium mt-1">{age.daysToBday} days to next birthday</div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Bottom Nav */}
+                    <nav className="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-200 px-3 pt-2 pb-3 z-30 flex justify-between items-center">
+                        {[
+                            { id: 'calc', label: 'Calc', icon: 'calculator' },
+                            { id: 'converter', label: 'Convert', icon: 'arrow-right-arrow-left' },
+                            { id: 'finance', label: 'Finance', icon: 'indian-rupee-sign' },
+                            { id: 'health', label: 'Health', icon: 'heart-pulse' },
+                            { id: 'date', label: 'Age', icon: 'calendar-day' }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => { triggerHaptic(); setActiveTab(tab.id); }}
+                                className={`flex flex-col items-center justify-center py-1 px-3 rounded-full transition ${
+                                    activeTab === tab.id ? 'text-[#ff9500] font-bold' : 'text-slate-400 hover:text-slate-600'
+                                }`}
+                            >
+                                <i className={`fa-solid fa-${tab.icon} text-base mb-1`}></i>
+                                <span className="text-[10px] tracking-tight">{tab.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
