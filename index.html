@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OmniCalc Pro - Complete Suite</title>
+    <title>OmniCalc Pro - Universal Suite</title>
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#f1f3f6">
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22OmniCalc%20Pro%22%2C%22short_name%22%3A%22OmniCalc%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f1f3f6%22%2C%22theme_color%22%3A%22%23ff9500%22%7D">
 
     <!-- High-Speed Cloudflare CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -92,9 +93,10 @@
             const [convTo, setConvTo] = useState('ft');
             const [convVal, setConvVal] = useState('1');
 
-            // --- AR / CAMERA MEASUREMENT ---
+            // --- ADVANCED AR MEASUREMENT ---
             const [capturedImage, setCapturedImage] = useState(null);
-            const [calibMode, setCalibMode] = useState('room_15ft');
+            const [measureShape, setMeasureShape] = useState('polygon'); // 'line', 'polygon', 'circle'
+            const [calibMode, setCalibMode] = useState('door_7ft');
             const [points, setPoints] = useState([]);
             const [measResult, setMeasResult] = useState(null);
             const [cameraActive, setCameraActive] = useState(false);
@@ -189,7 +191,6 @@
                 }
             };
 
-            // Unit Converter
             const runConversion = () => {
                 const val = parseFloat(convVal);
                 if (isNaN(val)) return '0';
@@ -208,7 +209,7 @@
                 return parseFloat(((val * catMap[convFrom]) / catMap[convTo]).toFixed(6));
             };
 
-            // AR Camera Handlers
+            // Camera Stream
             const startCamera = async () => {
                 try {
                     setCapturedImage(null); setPoints([]); setMeasResult(null); setCameraActive(true);
@@ -251,6 +252,7 @@
                 }
             };
 
+            // Multi-Point Canvas Renderer
             useEffect(() => {
                 if (!capturedImage || !canvasRef.current) return;
                 const canvas = canvasRef.current;
@@ -260,26 +262,141 @@
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
-                    if (points.length === 2) {
+
+                    const lineWidth = Math.max(3.5, canvas.width / 150);
+                    const pinRadius = Math.max(8, canvas.width / 80);
+
+                    if (measureShape === 'circle' && points.length >= 2) {
+                        const radius = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+                        ctx.beginPath();
+                        ctx.arc(points[0].x, points[0].y, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(255, 149, 0, 0.22)';
+                        ctx.fill();
+                        ctx.strokeStyle = '#ff9500';
+                        ctx.lineWidth = lineWidth;
+                        ctx.stroke();
+
+                        // Radius Line
                         ctx.beginPath();
                         ctx.moveTo(points[0].x, points[0].y);
                         ctx.lineTo(points[1].x, points[1].y);
+                        ctx.setLineDash([8, 8]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    } else if (points.length >= 2) {
+                        ctx.beginPath();
+                        ctx.moveTo(points[0].x, points[0].y);
+                        for (let i = 1; i < points.length; i++) {
+                            ctx.lineTo(points[i].x, points[i].y);
+                        }
+                        if (measureShape === 'polygon' && points.length >= 3) {
+                            ctx.closePath();
+                            ctx.fillStyle = 'rgba(255, 149, 0, 0.22)';
+                            ctx.fill();
+                        }
                         ctx.strokeStyle = '#ff9500';
-                        ctx.lineWidth = Math.max(4, canvas.width / 130);
+                        ctx.lineWidth = lineWidth;
                         ctx.stroke();
                     }
+
+                    // Draw Pins
                     points.forEach((pt, i) => {
-                        ctx.fillStyle = i === 0 ? '#10b981' : '#f43f5e';
+                        ctx.fillStyle = i === 0 ? '#10b981' : (i === points.length - 1 ? '#f43f5e' : '#3b82f6');
                         ctx.beginPath();
-                        ctx.arc(pt.x, pt.y, Math.max(9, canvas.width / 70), 0, Math.PI * 2);
+                        ctx.arc(pt.x, pt.y, pinRadius, 0, Math.PI * 2);
                         ctx.fill();
                         ctx.strokeStyle = '#ffffff';
-                        ctx.lineWidth = Math.max(2.5, canvas.width / 180);
+                        ctx.lineWidth = Math.max(2, canvas.width / 220);
                         ctx.stroke();
+
+                        // Point Number Tag
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = `bold ${Math.max(12, canvas.width / 55)}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`${i + 1}`, pt.x, pt.y);
                     });
                 };
                 img.src = capturedImage;
-            }, [capturedImage, points]);
+            }, [capturedImage, points, measureShape]);
+
+            // Spatial Math Calculator
+            const computeMeasurements = (pts, w, h) => {
+                const scopes = {
+                    card_3in: 0.28,
+                    desk_4ft: 4.0,
+                    door_7ft: 7.0,     // Standard door height (~7 ft / 2.13m)
+                    room_15ft: 15.0,
+                    room_20ft: 20.0,
+                    field_60ft: 60.0,
+                    land_200ft: 200.0   // Property / acreage view
+                };
+                const sceneScaleFeet = scopes[calibMode] || 15.0;
+                const diagPixels = Math.hypot(w, h);
+                const feetPerPixel = sceneScaleFeet / diagPixels;
+
+                if (measureShape === 'circle' && pts.length >= 2) {
+                    const rPixels = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+                    const rFeet = rPixels * feetPerPixel;
+                    const rMeters = rFeet * 0.3048;
+                    const areaSqFt = Math.PI * Math.pow(rFeet, 2);
+                    const areaSqM = areaSqFt * 0.092903;
+                    const circumferenceFt = 2 * Math.PI * rFeet;
+
+                    setMeasResult({
+                        type: 'circle',
+                        radiusFt: rFeet.toFixed(2),
+                        radiusM: rMeters.toFixed(2),
+                        circumferenceFt: circumferenceFt.toFixed(2),
+                        areaSqFt: areaSqFt.toFixed(2),
+                        areaSqM: areaSqM.toFixed(2),
+                        acres: (areaSqFt / 43560).toFixed(4),
+                        gaj: (areaSqFt / 9).toFixed(1)
+                    });
+                } else if (measureShape === 'line' && pts.length >= 2) {
+                    const pixelDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+                    const lenFt = pixelDist * feetPerPixel;
+                    const lenM = lenFt * 0.3048;
+
+                    setMeasResult({
+                        type: 'line',
+                        ft: lenFt.toFixed(2),
+                        in: (lenFt * 12).toFixed(1),
+                        m: lenM.toFixed(2),
+                        cm: (lenM * 100).toFixed(1)
+                    });
+                } else if (measureShape === 'polygon' && pts.length >= 3) {
+                    // Shoelace Formula for arbitrary polygon area
+                    let pixelArea = 0;
+                    let perimeterPixels = 0;
+                    const n = pts.length;
+                    for (let i = 0; i < n; i++) {
+                        const j = (i + 1) % n;
+                        pixelArea += pts[i].x * pts[j].y;
+                        pixelArea -= pts[j].x * pts[i].y;
+                        perimeterPixels += Math.hypot(pts[j].x - pts[i].x, pts[j].y - pts[i].y);
+                    }
+                    pixelArea = Math.abs(pixelArea) / 2;
+
+                    const sqFeetPerPixelSq = Math.pow(feetPerPixel, 2);
+                    const areaSqFt = pixelArea * sqFeetPerPixelSq;
+                    const areaSqM = areaSqFt * 0.092903;
+                    const perimeterFt = perimeterPixels * feetPerPixel;
+                    const perimeterM = perimeterFt * 0.3048;
+
+                    setMeasResult({
+                        type: 'polygon',
+                        ptsCount: n,
+                        areaSqFt: areaSqFt.toFixed(2),
+                        areaSqM: areaSqM.toFixed(2),
+                        acres: (areaSqFt / 43560).toFixed(4),
+                        cents: (areaSqFt / 435.6).toFixed(2), // 1 Cent = 435.6 sq ft
+                        gaj: (areaSqFt / 9).toFixed(1),       // 1 Square Yard = 9 sq ft
+                        perimeterFt: perimeterFt.toFixed(2),
+                        perimeterM: perimeterM.toFixed(2)
+                    });
+                }
+            };
 
             const onCanvasClick = (e) => {
                 triggerHaptic();
@@ -292,25 +409,11 @@
                 const y = (e.clientY - rect.top) * sy;
 
                 let next = [...points, { x, y }];
-                if (next.length > 2) next = [{ x, y }];
+                if (measureShape === 'line' && next.length > 2) next = [{ x, y }];
+                if (measureShape === 'circle' && next.length > 2) next = [{ x, y }];
                 setPoints(next);
 
-                if (next.length === 2) {
-                    const pixelDist = Math.hypot(next[1].x - next[0].x, next[1].y - next[0].y);
-                    const scopes = { card_3in: 0.28, desk_4ft: 4.0, room_15ft: 15.0, room_20ft: 20.0, field_60ft: 60.0 };
-                    const feetPerPixel = (scopes[calibMode] || 15.0) / Math.hypot(canvas.width, canvas.height);
-                    const lenFt = pixelDist * feetPerPixel;
-                    const lenM = lenFt * 0.3048;
-                    const estAreaSqFt = lenFt * (lenFt * 0.7);
-                    setMeasResult({
-                        ft: lenFt.toFixed(2),
-                        in: (lenFt * 12).toFixed(1),
-                        m: lenM.toFixed(2),
-                        cm: (lenM * 100).toFixed(1),
-                        sqFt: estAreaSqFt.toFixed(2),
-                        sqM: (estAreaSqFt * 0.092903).toFixed(2)
-                    });
-                }
+                computeMeasurements(next, canvas.width, canvas.height);
             };
 
             // Health
@@ -351,7 +454,7 @@
 
             return (
                 <div className="flex flex-col h-screen max-w-md mx-auto bg-[#f1f3f6] shadow-xl overflow-hidden border-x border-slate-200">
-                    {/* Minimalist Top Bar */}
+                    {/* Header */}
                     <header className="px-5 py-3 flex items-center justify-between text-slate-600 shrink-0 border-b border-slate-200/60 bg-[#f1f3f6]">
                         <button
                             onClick={() => { triggerHaptic(); setCalcMode(calcMode === 'standard' ? 'scientific' : 'standard'); }}
@@ -370,7 +473,7 @@
                         </button>
                     </header>
 
-                    {/* Main Workspace */}
+                    {/* Main Body */}
                     <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 flex flex-col justify-end">
                         {/* 1. CALCULATOR */}
                         {activeTab === 'calc' && (
@@ -505,27 +608,50 @@
                             </div>
                         )}
 
-                        {/* 3. AR / CAMERA MEASUREMENT */}
+                        {/* 3. AR / CAMERA MEASUREMENT & MULTI-POINT AREA */}
                         {activeTab === 'measure' && (
-                            <div className="space-y-4 pt-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h2 className="text-sm font-bold text-slate-800">AR Camera / Photo Scope</h2>
-                                        <p className="text-[11px] text-slate-500">Tap 2 points to measure real-world distance</p>
+                            <div className="space-y-3 pt-3">
+                                {/* Mode & Calibration Selector */}
+                                <div className="flex flex-col space-y-2">
+                                    <div className="flex space-x-1 bg-slate-200/80 p-1 rounded-full text-xs">
+                                        <button
+                                            onClick={() => { triggerHaptic(); setMeasureShape('polygon'); setPoints([]); setMeasResult(null); }}
+                                            className={`flex-1 py-1.5 rounded-full font-semibold transition ${measureShape === 'polygon' ? 'bg-[#ff9500] text-white shadow' : 'text-slate-600'}`}
+                                        >
+                                            <i className="fa-solid fa-draw-polygon mr-1"></i> Area (3+ Pts)
+                                        </button>
+                                        <button
+                                            onClick={() => { triggerHaptic(); setMeasureShape('line'); setPoints([]); setMeasResult(null); }}
+                                            className={`flex-1 py-1.5 rounded-full font-semibold transition ${measureShape === 'line' ? 'bg-[#ff9500] text-white shadow' : 'text-slate-600'}`}
+                                        >
+                                            <i className="fa-solid fa-ruler mr-1"></i> Line (2 Pts)
+                                        </button>
+                                        <button
+                                            onClick={() => { triggerHaptic(); setMeasureShape('circle'); setPoints([]); setMeasResult(null); }}
+                                            className={`flex-1 py-1.5 rounded-full font-semibold transition ${measureShape === 'circle' ? 'bg-[#ff9500] text-white shadow' : 'text-slate-600'}`}
+                                        >
+                                            <i className="fa-regular fa-circle mr-1"></i> Circle
+                                        </button>
                                     </div>
-                                    <select
-                                        value={calibMode}
-                                        onChange={e => setCalibMode(e.target.value)}
-                                        className="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 font-medium"
-                                    >
-                                        <option value="card_3in">Standard Card (3.37 in)</option>
-                                        <option value="desk_4ft">Desk Span (4 ft)</option>
-                                        <option value="room_15ft">Bedroom (15 ft)</option>
-                                        <option value="room_20ft">Living Room (20 ft)</option>
-                                        <option value="field_60ft">Outdoor (60 ft)</option>
-                                    </select>
+
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-xs text-slate-500 font-medium">Reference Scale:</span>
+                                        <select
+                                            value={calibMode}
+                                            onChange={e => { setCalibMode(e.target.value); if (canvasRef.current) computeMeasurements(points, canvasRef.current.width, canvasRef.current.height); }}
+                                            className="text-xs bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-slate-700 font-semibold focus:outline-none"
+                                        >
+                                            <option value="door_7ft">Standard Door Height (7 ft / 2.1m)</option>
+                                            <option value="room_15ft">Bedroom Span (15 ft)</option>
+                                            <option value="room_20ft">Living Room (20 ft)</option>
+                                            <option value="desk_4ft">Desk Width (4 ft)</option>
+                                            <option value="field_60ft">Large Hall / Yard (60 ft)</option>
+                                            <option value="land_200ft">Land / Acre Scale (200 ft)</option>
+                                        </select>
+                                    </div>
                                 </div>
 
+                                {/* Canvas Viewport */}
                                 <div className="relative w-full aspect-[4/3] bg-slate-200 rounded-3xl border border-slate-300 overflow-hidden flex items-center justify-center">
                                     {cameraActive ? (
                                         <div className="relative w-full h-full flex flex-col justify-end">
@@ -547,7 +673,7 @@
                                         />
                                     ) : (
                                         <div className="text-center p-6 space-y-3">
-                                            <div className="w-12 h-12 mx-auto rounded-full bg-white shadow-sm flex items-center justify-center text-orange-500 text-xl">
+                                            <div className="w-12 h-12 mx-auto rounded-full bg-white shadow-sm flex items-center justify-center text-[#ff9500] text-xl">
                                                 <i className="fa-solid fa-camera"></i>
                                             </div>
                                             <div className="text-xs text-slate-500">Capture scene or select a reference image</div>
@@ -565,25 +691,80 @@
                                 </div>
 
                                 {capturedImage && (
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-500">Pins: <strong className="text-orange-500 font-mono">{points.length} / 2</strong></span>
+                                    <div className="flex justify-between items-center text-xs px-1">
+                                        <span className="text-slate-500">
+                                            Points: <strong className="text-[#ff9500] font-mono">{points.length}</strong> {measureShape === 'polygon' ? '(Tap corners)' : ''}
+                                        </span>
                                         <div className="space-x-2">
-                                            <button onClick={() => { setPoints([]); setMeasResult(null); }} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700">Clear</button>
-                                            <button onClick={() => fileRef.current.click()} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700">New Pic</button>
+                                            <button onClick={() => { setPoints([]); setMeasResult(null); }} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">Clear</button>
+                                            <button onClick={() => fileRef.current.click()} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">New Pic</button>
                                         </div>
                                     </div>
                                 )}
 
+                                {/* Spatial Results Display */}
                                 {measResult && (
-                                    <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-2 gap-2.5">
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <div className="text-[10px] text-slate-400 font-medium">Imperial Distance</div>
-                                            <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.ft} ft ({measResult.in}")</div>
-                                        </div>
-                                        <div className="bg-slate-50 p-3 rounded-2xl">
-                                            <div className="text-[10px] text-slate-400 font-medium">Metric Distance</div>
-                                            <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.m} m ({measResult.cm} cm)</div>
-                                        </div>
+                                    <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-2.5">
+                                        {measResult.type === 'polygon' && (
+                                            <>
+                                                <div className="flex justify-between items-center pb-1 border-b border-slate-100">
+                                                    <span className="text-xs font-bold text-slate-800">
+                                                        <i className="fa-solid fa-vector-square text-orange-500 mr-1"></i> {measResult.ptsCount}-Point Spatial Area
+                                                    </span>
+                                                    <span className="text-[11px] font-semibold text-orange-500">{measResult.areaSqFt} sq ft</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                        <div className="text-[10px] text-slate-400 font-medium">Metric Area</div>
+                                                        <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.areaSqM} m²</div>
+                                                    </div>
+                                                    <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                        <div className="text-[10px] text-slate-400 font-medium">Sq Yards (Gaj)</div>
+                                                        <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.gaj} Gaj</div>
+                                                    </div>
+                                                    <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                        <div className="text-[10px] text-slate-400 font-medium">Acres</div>
+                                                        <div className="text-base font-bold font-mono text-orange-600 mt-0.5">{measResult.acres} Ac</div>
+                                                    </div>
+                                                    <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                        <div className="text-[10px] text-slate-400 font-medium">Cents / Guntha</div>
+                                                        <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.cents} Cents</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-[11px] text-slate-500 text-center pt-1">
+                                                    Boundary Perimeter: <strong>{measResult.perimeterFt} ft ({measResult.perimeterM} m)</strong>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {measResult.type === 'line' && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="bg-slate-50 p-3 rounded-2xl">
+                                                    <div className="text-[10px] text-slate-400 font-medium">Imperial Distance</div>
+                                                    <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.ft} ft ({measResult.in}")</div>
+                                                </div>
+                                                <div className="bg-slate-50 p-3 rounded-2xl">
+                                                    <div className="text-[10px] text-slate-400 font-medium">Metric Distance</div>
+                                                    <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.m} m ({measResult.cm} cm)</div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {measResult.type === 'circle' && (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                    <div className="text-[10px] text-slate-400 font-medium">Circular Area</div>
+                                                    <div className="text-base font-bold font-mono text-orange-600 mt-0.5">{measResult.areaSqFt} sq ft</div>
+                                                </div>
+                                                <div className="bg-slate-50 p-2.5 rounded-2xl">
+                                                    <div className="text-[10px] text-slate-400 font-medium">Radius</div>
+                                                    <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.radiusFt} ft</div>
+                                                </div>
+                                                <div className="bg-slate-50 p-2.5 rounded-2xl col-span-2 text-center">
+                                                    <span className="text-[11px] text-slate-500">Circumference: <strong>{measResult.circumferenceFt} ft</strong></span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -717,7 +898,7 @@
                         )}
                     </main>
 
-                    {/* Bottom Navigation with All 6 Tools */}
+                    {/* Navigation Bar with all 6 tools */}
                     <nav className="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 pt-2 pb-3 z-30 flex justify-between items-center">
                         {[
                             { id: 'calc', label: 'Calc', icon: 'calculator' },
