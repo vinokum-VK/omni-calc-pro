@@ -1,42 +1,134 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OmniCalc Pro - Vk Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OmniCalc Pro - Universal Executive Suite</title>
+
+    <!-- PWA & Mobile Web Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="OmniCalc">
+    <meta name="theme-color" content="#06080F">
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22OmniCalc%20Pro%22%2C%22short_name%22%3A%22OmniCalc%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%2306080F%22%2C%22theme_color%22%3A%22%236366f1%22%7D">
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        obsidian: '#07090e',
+                        surface: 'rgba(18, 22, 34, 0.75)',
+                        surfaceBorder: 'rgba(255, 255, 255, 0.08)',
+                        brand: {
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            accent: '#06b6d4'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React 18 & Dependencies -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; touch-action: manipulation; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            touch-action: manipulation;
+            background-color: #06080f;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.8) 0px, transparent 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-feature-settings: "tnum" 1, "zero" 1;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .glass-panel {
+            background: rgba(15, 20, 32, 0.72);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(22, 28, 45, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .btn-touch {
+            transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-touch:active {
+            transform: scale(0.94);
+            filter: brightness(1.2);
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+<body class="text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
+        // Indian Currency Formatter (₹ - Lakhs/Crores)
+        const formatINR = (val) => {
+            const num = parseFloat(val);
+            if (isNaN(num)) return '₹0.00';
+            return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+        // Haptic feedback trigger (Android & modern touch devices)
+        const triggerHaptic = () => {
+            if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(10);
+            }
+        };
+
         const CONVERSION_RATES = {
             length: { m: 1, cm: 0.01, mm: 0.001, km: 1000, in: 0.0254, ft: 0.3048, yd: 0.9144, mi: 1609.344 },
-            mass: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.45359237, oz: 0.0283495, ton: 1000 },
-            volume: { l: 1, ml: 0.001, gal: 3.78541, qt: 0.946353, cup: 0.24, floz: 0.0295735 },
-            area: { sqm: 1, sqft: 0.092903, sqin: 0.00064516, acre: 4046.86, hectare: 10000 },
+            mass: { kg: 1, g: 0.001, mg: 0.000001, lb: 0.453592, oz: 0.02835, ton: 1000 },
+            volume: { l: 1, ml: 0.001, gal: 3.78541, qt: 0.94635, cup: 0.24, floz: 0.02957 },
+            area: { sqm: 1, sqft: 0.0929, sqin: 0.000645, acre: 4046.86, hectare: 10000 },
             temperature: { c: 'C', f: 'F', k: 'K' },
-            speed: { mps: 1, kmh: 0.277778, mph: 0.44704, knot: 0.514444 },
+            speed: { kmh: 1, mps: 3.6, mph: 1.60934, knot: 1.852 },
             digital: { b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776 }
         };
 
         function App() {
             const [activeTab, setActiveTab] = useState('calc');
             const [calcMode, setCalcMode] = useState('standard');
+
+            // --- CALCULATOR STATE ---
             const [display, setDisplay] = useState('0');
             const [expression, setExpression] = useState('');
             const [memory, setMemory] = useState(0);
@@ -44,37 +136,47 @@
             const [showHistory, setShowHistory] = useState(false);
             const [isRad, setIsRad] = useState(false);
 
+            // --- CONVERTER STATE ---
             const [convCat, setConvCat] = useState('length');
             const [convFrom, setConvFrom] = useState('m');
             const [convTo, setConvTo] = useState('ft');
             const [convVal, setConvVal] = useState('1');
 
+            // --- AR / CAMERA MEASURE STATE ---
             const [capturedImage, setCapturedImage] = useState(null);
-            const [calibMode, setCalibMode] = useState('room_15ft'); 
+            const [calibMode, setCalibMode] = useState('room_15ft');
             const [points, setPoints] = useState([]);
             const [measResult, setMeasResult] = useState(null);
             const [cameraActive, setCameraActive] = useState(false);
 
+            // --- FINANCE STATE (INR) ---
             const [finTab, setFinTab] = useState('loan');
-            const [loanPrincipal, setLoanPrincipal] = useState('300000');
-            const [loanInterest, setLoanInterest] = useState('6.5');
+            const [loanPrincipal, setLoanPrincipal] = useState('2500000');
+            const [loanInterest, setLoanInterest] = useState('8.5');
             const [loanYears, setLoanYears] = useState('20');
-            const [tipBill, setTipBill] = useState('85');
-            const [tipRate, setTipRate] = useState('18');
-            const [tipSplit, setTipSplit] = useState('2');
-            const [invInit, setInvInit] = useState('5000');
-            const [invAnnual, setInvAnnual] = useState('8');
-            const [invYears, setInvYears] = useState('10');
-            const [invMonthly, setInvMonthly] = useState('200');
+            const [invInit, setInvInit] = useState('50000');
+            const [invAnnual, setInvAnnual] = useState('12');
+            const [invYears, setInvYears] = useState('15');
+            const [invMonthly, setInvMonthly] = useState('5000');
+            const [gstBase, setGstBase] = useState('10000');
+            const [gstRate, setGstRate] = useState('18');
+            const [gstType, setGstType] = useState('exclusive'); // exclusive (add GST) or inclusive (extract GST)
 
-            const [dob, setDob] = useState('1998-04-12');
+            // --- HEALTH SUITE STATE ---
+            const [userHeight, setUserHeight] = useState('175'); // cm
+            const [userWeight, setUserWeight] = useState('72');  // kg
+            const [userAge, setUserAge] = useState('26');
+            const [userGender, setUserGender] = useState('male');
+
+            // --- DATE STATE ---
+            const [dob, setDob] = useState('1998-05-15');
             const [cmpDate, setCmpDate] = useState(new Date().toISOString().split('T')[0]);
 
             const fileRef = useRef(null);
             const canvasRef = useRef(null);
             const videoRef = useRef(null);
-            const reportRef = useRef(null);
 
+            // Keyboard navigation (Windows / Mac / Desktop)
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     if (activeTab !== 'calc') return;
@@ -91,25 +193,38 @@
                 return () => window.removeEventListener('keydown', handleKeyDown);
             });
 
+            // Robust math evaluator
             const handleCalc = (btn) => {
-                if (btn === 'C') { setDisplay('0'); setExpression(''); }
-                else if (btn === 'CE') { setDisplay('0'); }
-                else if (btn === '⌫') { setDisplay(prev => (prev.length > 1 ? prev.slice(0, -1) : '0')); }
-                else if (btn === '±') { setDisplay(prev => (prev.startsWith('-') ? prev.slice(1) : '-' + prev)); }
-                else if (['+', '-', '×', '÷'].includes(btn)) {
+                triggerHaptic();
+                if (btn === 'C') {
+                    setDisplay('0');
+                    setExpression('');
+                } else if (btn === 'CE') {
+                    setDisplay('0');
+                } else if (btn === '⌫') {
+                    setDisplay(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
+                } else if (btn === '±') {
+                    setDisplay(prev => (prev.startsWith('-') ? prev.slice(1) : '-' + prev));
+                } else if (['+', '-', '×', '÷'].includes(btn)) {
                     setExpression(expression ? `${expression} ${display} ${btn}` : `${display} ${btn}`);
                     setDisplay('0');
                 } else if (btn === '=') {
                     try {
                         let fullExp = (expression ? `${expression} ${display}` : display)
-                            .replace(/×/g, '*').replace(/÷/g, '/').replace(/π/g, `${Math.PI}`).replace(/e/g, `${Math.E}`);
+                            .replace(/×/g, '*')
+                            .replace(/÷/g, '/')
+                            .replace(/π/g, `${Math.PI}`)
+                            .replace(/e/g, `${Math.E}`);
+
                         if (!/^[\d\s+\-*/.()MathPIE]+$/.test(fullExp)) throw new Error('Invalid');
                         const calcRes = Function(`"use strict"; return (${fullExp})`)();
                         const sanitized = Number.isFinite(calcRes) ? parseFloat(calcRes.toFixed(8)).toString() : 'Error';
                         setHistory(prev => [{ exp: `${expression} ${display}`, res: sanitized }, ...prev.slice(0, 19)]);
                         setDisplay(sanitized);
                         setExpression('');
-                    } catch { setDisplay('Error'); }
+                    } catch {
+                        setDisplay('Error');
+                    }
                 } else {
                     if (display === '0' && btn !== '.') setDisplay(btn);
                     else if (btn === '.' && display.includes('.')) return;
@@ -118,6 +233,7 @@
             };
 
             const handleScientific = (op) => {
+                triggerHaptic();
                 try {
                     let v = parseFloat(display);
                     let res = 0;
@@ -139,10 +255,14 @@
                     const finalRes = parseFloat(res.toFixed(8)).toString();
                     setHistory(prev => [{ exp: `${op}(${display})`, res: finalRes }, ...prev.slice(0, 19)]);
                     setDisplay(finalRes);
-                } catch { setDisplay('Error'); }
+                } catch {
+                    setDisplay('Error');
+                }
             };
 
+            // Memory Operations
             const handleMemory = (action) => {
+                triggerHaptic();
                 const current = parseFloat(display) || 0;
                 if (action === 'MC') setMemory(0);
                 if (action === 'MR') setDisplay(memory.toString());
@@ -150,6 +270,7 @@
                 if (action === 'M-') setMemory(prev => prev - current);
             };
 
+            // Conversions Engine
             useEffect(() => {
                 const units = Object.keys(CONVERSION_RATES[convCat]);
                 setConvFrom(units[0]);
@@ -174,15 +295,22 @@
                 return parseFloat(((val * catMap[convFrom]) / catMap[convTo]).toFixed(6));
             };
 
+            // AR Camera Handlers
             const startCamera = async () => {
                 try {
                     setCapturedImage(null); setPoints([]); setMeasResult(null); setCameraActive(true);
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+                    });
                     if (videoRef.current) videoRef.current.srcObject = stream;
-                } catch { alert('Camera unavailable'); setCameraActive(false); }
+                } catch {
+                    alert('Camera access denied or unavailable. You can upload an image instead.');
+                    setCameraActive(false);
+                }
             };
 
             const takeSnapshot = () => {
+                triggerHaptic();
                 if (!videoRef.current) return;
                 const vid = videoRef.current;
                 const canvas = document.createElement('canvas');
@@ -190,7 +318,9 @@
                 canvas.height = vid.videoHeight || 720;
                 canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
                 setCapturedImage(canvas.toDataURL('image/jpeg'));
-                if (vid.srcObject) vid.srcObject.getTracks().forEach(t => t.stop());
+                if (vid.srcObject) {
+                    vid.srcObject.getTracks().forEach(t => t.stop());
+                }
                 setCameraActive(false);
             };
 
@@ -198,33 +328,52 @@
                 const f = e.target.files[0];
                 if (f) {
                     const reader = new FileReader();
-                    reader.onload = ev => { setCapturedImage(ev.target.result); setPoints([]); setMeasResult(null); setCameraActive(false); };
+                    reader.onload = ev => {
+                        setCapturedImage(ev.target.result);
+                        setPoints([]);
+                        setMeasResult(null);
+                        setCameraActive(false);
+                    };
                     reader.readAsDataURL(f);
                 }
             };
 
+            // Retina/HiDPI Responsive Canvas Draw
             useEffect(() => {
                 if (!capturedImage || !canvasRef.current) return;
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 const img = new Image();
                 img.onload = () => {
-                    canvas.width = img.width; canvas.height = img.height;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
                     if (points.length === 2) {
-                        ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y);
-                        ctx.strokeStyle = '#6366f1'; ctx.lineWidth = Math.max(4, canvas.width / 150); ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(points[0].x, points[0].y);
+                        ctx.lineTo(points[1].x, points[1].y);
+                        ctx.strokeStyle = '#06b6d4';
+                        ctx.lineWidth = Math.max(4, canvas.width / 140);
+                        ctx.shadowColor = 'rgba(6, 182, 212, 0.6)';
+                        ctx.shadowBlur = 10;
+                        ctx.stroke();
+                        ctx.shadowBlur = 0;
                     }
                     points.forEach((pt, i) => {
                         ctx.fillStyle = i === 0 ? '#10b981' : '#f43f5e';
-                        ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(8, canvas.width / 80), 0, Math.PI * 2); ctx.fill();
-                        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(2, canvas.width / 240); ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(pt.x, pt.y, Math.max(9, canvas.width / 75), 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = Math.max(2.5, canvas.width / 220);
+                        ctx.stroke();
                     });
                 };
                 img.src = capturedImage;
             }, [capturedImage, points]);
 
             const onCanvasClick = (e) => {
+                triggerHaptic();
                 if (!capturedImage) return;
                 const canvas = canvasRef.current;
                 const rect = canvas.getBoundingClientRect();
@@ -232,9 +381,11 @@
                 const sy = canvas.height / rect.height;
                 const x = (e.clientX - rect.left) * sx;
                 const y = (e.clientY - rect.top) * sy;
+
                 let next = [...points, { x, y }];
                 if (next.length > 2) next = [{ x, y }];
                 setPoints(next);
+
                 if (next.length === 2) {
                     const pixelDist = Math.hypot(next[1].x - next[0].x, next[1].y - next[0].y);
                     const scopes = { card_3in: 0.28, desk_4ft: 4.0, room_15ft: 15.0, room_20ft: 20.0, field_60ft: 60.0 };
@@ -242,10 +393,53 @@
                     const lenFt = pixelDist * feetPerPixel;
                     const lenM = lenFt * 0.3048;
                     const estAreaSqFt = lenFt * (lenFt * 0.7);
-                    setMeasResult({ ft: lenFt.toFixed(2), in: (lenFt * 12).toFixed(1), m: lenM.toFixed(2), cm: (lenM * 100).toFixed(1), sqFt: estAreaSqFt.toFixed(2), sqM: (estAreaSqFt * 0.092903).toFixed(2) });
+                    setMeasResult({
+                        ft: lenFt.toFixed(2),
+                        in: (lenFt * 12).toFixed(1),
+                        m: lenM.toFixed(2),
+                        cm: (lenM * 100).toFixed(1),
+                        sqFt: estAreaSqFt.toFixed(2),
+                        sqM: (estAreaSqFt * 0.092903).toFixed(2)
+                    });
                 }
             };
 
+            // Health Suite Computations
+            const computeHealth = () => {
+                const hMeters = parseFloat(userHeight) / 100;
+                const wKg = parseFloat(userWeight);
+                if (!hMeters || !wKg) return null;
+
+                const bmi = wKg / (hMeters * hMeters);
+                let cat = 'Normal Weight';
+                let col = 'text-emerald-400';
+                if (bmi < 18.5) { cat = 'Underweight'; col = 'text-amber-400'; }
+                else if (bmi >= 25 && bmi < 29.9) { cat = 'Overweight'; col = 'text-amber-400'; }
+                else if (bmi >= 30) { cat = 'Obesity'; col = 'text-rose-400'; }
+
+                // Harris-Benedict BMR Formula
+                const age = parseFloat(userAge) || 25;
+                let bmr = userGender === 'male'
+                    ? 88.362 + (13.397 * wKg) + (4.799 * parseFloat(userHeight)) - (5.677 * age)
+                    : 447.593 + (9.247 * wKg) + (3.098 * parseFloat(userHeight)) - (4.330 * age);
+
+                // Devine Ideal Body Weight Formula
+                const hInches = parseFloat(userHeight) / 2.54;
+                const over5Ft = Math.max(0, hInches - 60);
+                const idealWeight = userGender === 'male' ? 50 + 2.3 * over5Ft : 45.5 + 2.3 * over5Ft;
+
+                return {
+                    bmi: bmi.toFixed(1),
+                    category: cat,
+                    color: col,
+                    bmr: Math.round(bmr),
+                    ideal: idealWeight.toFixed(1),
+                    water: (wKg * 0.035).toFixed(1) // Liters daily
+                };
+            };
+            const health = computeHealth();
+
+            // Date Computations
             const calculateAge = () => {
                 const start = new Date(dob);
                 const end = new Date(cmpDate);
@@ -258,139 +452,279 @@
                 const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
                 let nextBday = new Date(end.getFullYear(), start.getMonth(), start.getDate());
                 if (nextBday < end) nextBday = new Date(end.getFullYear() + 1, start.getMonth(), start.getDate());
-                return { y, m, d, totalDays, totalWeeks: Math.floor(totalDays / 7), totalHours: totalDays * 24, daysToBday: Math.ceil((nextBday - end) / (1000 * 60 * 60 * 24)) };
+                return {
+                    y, m, d,
+                    totalDays,
+                    totalWeeks: Math.floor(totalDays / 7),
+                    totalHours: totalDays * 24,
+                    daysToBday: Math.ceil((nextBday - end) / (1000 * 60 * 60 * 24))
+                };
             };
             const age = calculateAge();
 
             return (
-                <div className="flex flex-col h-screen max-w-md mx-auto bg-slate-900 text-slate-100 shadow-2xl overflow-hidden border-x border-slate-800">
-                    <header className="flex items-center justify-between px-4 py-3 bg-slate-900/95 backdrop-blur border-b border-slate-800 z-10 shrink-0">
+                <div className="flex flex-col h-screen max-w-md mx-auto bg-obsidian text-slate-100 shadow-[0_0_80px_rgba(0,0,0,0.8)] overflow-hidden border-x border-surfaceBorder select-none">
+                    {/* Header with Safe Area Support for iOS notch/dynamic island */}
+                    <header className="pt-[env(safe-area-inset-top)] px-4 py-3 bg-slate-950/80 backdrop-blur-xl border-b border-surfaceBorder z-30 shrink-0 flex items-center justify-between">
                         <div className="flex items-center space-x-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center font-bold text-white shadow-lg">
-                                <i className="fa-solid fa-calculator text-sm"></i>
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-brand-accent flex items-center justify-center font-bold text-white shadow-[0_0_16px_rgba(99,102,241,0.4)]">
+                                <i className="fa-solid fa-shapes text-sm"></i>
                             </div>
                             <div>
-                                <h1 className="font-bold text-base bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">OmniCalc Pro</h1>
-                                <span className="text-[10px] text-indigo-400 font-semibold block leading-none">Vk Edition</span>
+                                <h1 className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                                    OmniCalc Pro
+                                </h1>
+                                <span className="text-[10px] text-cyan-400 font-semibold tracking-wider block uppercase">Executive Suite • ₹ INR</span>
                             </div>
                         </div>
-                        <button onClick={() => setShowHistory(!showHistory)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white text-xs">
-                            <i className="fa-solid fa-clock-rotate-left"></i>
-                        </button>
+
+                        <div className="flex items-center space-x-2">
+                            {activeTab === 'calc' && (
+                                <button
+                                    onClick={() => { triggerHaptic(); setShowHistory(!showHistory); }}
+                                    className={`p-2 rounded-xl text-xs transition btn-touch ${showHistory ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white/5 text-slate-400 hover:text-white'}`}
+                                >
+                                    <i className="fa-solid fa-clock-rotate-left"></i>
+                                </button>
+                            )}
+                            <div className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-mono font-medium border border-indigo-500/20">
+                                v4.2
+                            </div>
+                        </div>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
+                    {/* Scroll Area */}
+                    <main className="flex-1 overflow-y-auto no-scrollbar p-4 pb-28 space-y-4">
+                        {/* ===================================== */}
+                        {/* 1. CALCULATOR */}
+                        {/* ===================================== */}
                         {activeTab === 'calc' && (
                             <div className="flex flex-col h-full justify-between space-y-3">
                                 <div className="flex justify-between items-center">
-                                    <div className="flex space-x-1 bg-slate-950 p-1 rounded-xl text-xs border border-slate-800">
-                                        <button onClick={() => setCalcMode('standard')} className={`px-3 py-1.5 rounded-lg transition ${calcMode === 'standard' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Standard</button>
-                                        <button onClick={() => setCalcMode('scientific')} className={`px-3 py-1.5 rounded-lg transition ${calcMode === 'scientific' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Scientific</button>
+                                    <div className="flex space-x-1 glass-card p-1 rounded-xl text-xs">
+                                        <button
+                                            onClick={() => { triggerHaptic(); setCalcMode('standard'); }}
+                                            className={`px-3 py-1.5 rounded-lg transition font-medium ${calcMode === 'standard' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400'}`}
+                                        >
+                                            Standard
+                                        </button>
+                                        <button
+                                            onClick={() => { triggerHaptic(); setCalcMode('scientific'); }}
+                                            className={`px-3 py-1.5 rounded-lg transition font-medium ${calcMode === 'scientific' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30' : 'text-slate-400'}`}
+                                        >
+                                            Scientific
+                                        </button>
                                     </div>
-                                    {calcMode === 'scientific' && (
-                                        <button onClick={() => setIsRad(!isRad)} className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-indigo-400 font-mono font-semibold">{isRad ? 'RAD' : 'DEG'}</button>
-                                    )}
+                                    <div className="flex items-center space-x-1.5">
+                                        {calcMode === 'scientific' && (
+                                            <button
+                                                onClick={() => { triggerHaptic(); setIsRad(!isRad); }}
+                                                className="text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 text-indigo-400 font-mono font-semibold border border-white/10 btn-touch"
+                                            >
+                                                {isRad ? 'RAD' : 'DEG'}
+                                            </button>
+                                        )}
+                                        {memory !== 0 && (
+                                            <span className="text-[10px] px-2 py-1 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20 font-mono">
+                                                M={memory}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-right min-h-[105px] flex flex-col justify-end">
-                                    <div className="text-xs text-slate-500 font-mono">{expression || '\u00A0'}</div>
-                                    <div className="text-3xl font-mono font-bold text-white mt-1">{display}</div>
+
+                                {/* LCD Screen */}
+                                <div className="glass-panel p-4 rounded-3xl border border-white/10 shadow-[inset_0_2px_12px_rgba(0,0,0,0.6)] text-right min-h-[115px] flex flex-col justify-end">
+                                    <div className="text-xs text-slate-500 font-mono tracking-wider overflow-x-auto whitespace-nowrap">
+                                        {expression || '\u00A0'}
+                                    </div>
+                                    <div className="text-4xl font-mono font-bold text-white mt-1 tracking-tight overflow-x-auto whitespace-nowrap">
+                                        {display}
+                                    </div>
                                 </div>
+
+                                {/* Memory Strip */}
                                 <div className="grid grid-cols-4 gap-1.5 text-xs font-mono font-semibold">
                                     {['MC', 'MR', 'M+', 'M-'].map(m => (
-                                        <button key={m} onClick={() => handleMemory(m)} className="py-1.5 bg-slate-800/50 hover:bg-slate-800 text-slate-400 rounded-lg">{m}</button>
+                                        <button
+                                            key={m}
+                                            onClick={() => handleMemory(m)}
+                                            className="py-1.5 glass-card hover:bg-white/10 text-slate-400 hover:text-indigo-300 rounded-xl transition btn-touch"
+                                        >
+                                            {m}
+                                        </button>
                                     ))}
                                 </div>
+
+                                {/* History Flyout */}
                                 {showHistory && (
-                                    <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 max-h-40 overflow-y-auto text-xs font-mono">
-                                        <div className="flex justify-between pb-1 border-b border-slate-800 text-slate-400">
-                                            <span>History</span>
-                                            <button onClick={() => setHistory([])} className="text-rose-400">Clear</button>
+                                    <div className="glass-panel p-3.5 rounded-2xl max-h-44 overflow-y-auto space-y-2 text-xs font-mono">
+                                        <div className="flex justify-between items-center pb-1 border-b border-white/10 text-slate-400 font-sans">
+                                            <span className="font-semibold">Recent History</span>
+                                            <button onClick={() => setHistory([])} className="text-rose-400 hover:underline">Clear</button>
                                         </div>
-                                        {history.map((h, i) => (
-                                            <div key={i} className="flex justify-between py-1 text-slate-300">
-                                                <span className="text-slate-500">{h.exp} =</span>
-                                                <span className="text-indigo-400 font-bold">{h.res}</span>
-                                            </div>
-                                        ))}
+                                        {history.length === 0 ? (
+                                            <div className="text-slate-600 text-center py-2 font-sans">No operations recorded</div>
+                                        ) : (
+                                            history.map((h, i) => (
+                                                <div key={i} onClick={() => setDisplay(h.res)} className="flex justify-between py-1 cursor-pointer hover:bg-white/5 px-1.5 rounded text-slate-300">
+                                                    <span className="text-slate-500 truncate mr-2">{h.exp} =</span>
+                                                    <span className="text-indigo-400 font-bold">{h.res}</span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 )}
+
+                                {/* Scientific Layout */}
                                 {calcMode === 'scientific' && (
                                     <div className="grid grid-cols-5 gap-1.5">
                                         {[
-                                            { label: 'sin', act: () => handleScientific('sin') }, { label: 'cos', act: () => handleScientific('cos') }, { label: 'tan', act: () => handleScientific('tan') },
-                                            { label: 'log', act: () => handleScientific('log') }, { label: 'ln', act: () => handleScientific('ln') }, { label: '√', act: () => handleScientific('sqrt') },
-                                            { label: 'x²', act: () => handleScientific('sqr') }, { label: 'x³', act: () => handleScientific('cube') }, { label: '1/x', act: () => handleScientific('inv') },
-                                            { label: 'n!', act: () => handleScientific('fact') }, { label: 'π', act: () => handleCalc('π') }, { label: 'e', act: () => handleCalc('e') },
-                                            { label: '(', act: () => handleCalc('(') }, { label: ')', act: () => handleCalc(')') }, { label: '±', act: () => handleCalc('±') }
+                                            { label: 'sin', act: () => handleScientific('sin') },
+                                            { label: 'cos', act: () => handleScientific('cos') },
+                                            { label: 'tan', act: () => handleScientific('tan') },
+                                            { label: 'log', act: () => handleScientific('log') },
+                                            { label: 'ln', act: () => handleScientific('ln') },
+                                            { label: '√', act: () => handleScientific('sqrt') },
+                                            { label: 'x²', act: () => handleScientific('sqr') },
+                                            { label: 'x³', act: () => handleScientific('cube') },
+                                            { label: '1/x', act: () => handleScientific('inv') },
+                                            { label: 'n!', act: () => handleScientific('fact') },
+                                            { label: 'π', act: () => handleCalc('π') },
+                                            { label: 'e', act: () => handleCalc('e') },
+                                            { label: '(', act: () => handleCalc('(') },
+                                            { label: ')', act: () => handleCalc(')') },
+                                            { label: '±', act: () => handleCalc('±') }
                                         ].map((b, i) => (
-                                            <button key={i} onClick={b.act} className="p-2.5 bg-slate-800/80 text-xs rounded-xl font-medium text-indigo-300 active:scale-95">{b.label}</button>
+                                            <button
+                                                key={i}
+                                                onClick={b.act}
+                                                className="p-2.5 glass-card hover:bg-indigo-600/20 text-xs rounded-xl font-medium text-cyan-300 btn-touch"
+                                            >
+                                                {b.label}
+                                            </button>
                                         ))}
                                     </div>
                                 )}
+
+                                {/* Standard Keypad */}
                                 <div className="grid grid-cols-4 gap-2">
-                                    <button onClick={() => handleCalc('C')} className="p-3.5 bg-rose-500/10 text-rose-400 font-bold rounded-2xl active:scale-95">C</button>
-                                    <button onClick={() => handleCalc('CE')} className="p-3.5 bg-slate-800 text-slate-300 font-bold rounded-2xl active:scale-95">CE</button>
-                                    <button onClick={() => handleCalc('⌫')} className="p-3.5 bg-slate-800 text-slate-300 font-bold rounded-2xl active:scale-95"><i className="fa-solid fa-delete-left"></i></button>
-                                    <button onClick={() => handleCalc('÷')} className="p-3.5 bg-indigo-600/20 text-indigo-400 font-bold text-lg rounded-2xl active:scale-95">÷</button>
-                                    <button onClick={() => handleCalc('7')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">7</button>
-                                    <button onClick={() => handleCalc('8')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">8</button>
-                                    <button onClick={() => handleCalc('9')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">9</button>
-                                    <button onClick={() => handleCalc('×')} className="p-3.5 bg-indigo-600/20 text-indigo-400 font-bold text-lg rounded-2xl active:scale-95">×</button>
-                                    <button onClick={() => handleCalc('4')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">4</button>
-                                    <button onClick={() => handleCalc('5')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">5</button>
-                                    <button onClick={() => handleCalc('6')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">6</button>
-                                    <button onClick={() => handleCalc('-')} className="p-3.5 bg-indigo-600/20 text-indigo-400 font-bold text-lg rounded-2xl active:scale-95">-</button>
-                                    <button onClick={() => handleCalc('1')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">1</button>
-                                    <button onClick={() => handleCalc('2')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">2</button>
-                                    <button onClick={() => handleCalc('3')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">3</button>
-                                    <button onClick={() => handleCalc('+')} className="p-3.5 bg-indigo-600/20 text-indigo-400 font-bold text-lg rounded-2xl active:scale-95">+</button>
-                                    <button onClick={() => handleCalc('0')} className="p-3.5 col-span-2 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">0</button>
-                                    <button onClick={() => handleCalc('.')} className="p-3.5 bg-slate-800/60 text-white font-bold text-lg rounded-2xl active:scale-95">.</button>
-                                    <button onClick={() => handleCalc('=')} className="p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xl rounded-2xl active:scale-95 shadow-lg shadow-indigo-600/30">=</button>
+                                    <button onClick={() => handleCalc('C')} className="p-3.5 bg-rose-500/15 text-rose-400 border border-rose-500/20 font-bold rounded-2xl btn-touch">C</button>
+                                    <button onClick={() => handleCalc('CE')} className="p-3.5 glass-card text-slate-300 font-bold rounded-2xl btn-touch">CE</button>
+                                    <button onClick={() => handleCalc('⌫')} className="p-3.5 glass-card text-slate-300 font-bold rounded-2xl btn-touch"><i className="fa-solid fa-delete-left"></i></button>
+                                    <button onClick={() => handleCalc('÷')} className="p-3.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-lg rounded-2xl btn-touch">÷</button>
+
+                                    <button onClick={() => handleCalc('7')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">7</button>
+                                    <button onClick={() => handleCalc('8')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">8</button>
+                                    <button onClick={() => handleCalc('9')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">9</button>
+                                    <button onClick={() => handleCalc('×')} className="p-3.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-lg rounded-2xl btn-touch">×</button>
+
+                                    <button onClick={() => handleCalc('4')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">4</button>
+                                    <button onClick={() => handleCalc('5')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">5</button>
+                                    <button onClick={() => handleCalc('6')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">6</button>
+                                    <button onClick={() => handleCalc('-')} className="p-3.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-lg rounded-2xl btn-touch">-</button>
+
+                                    <button onClick={() => handleCalc('1')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">1</button>
+                                    <button onClick={() => handleCalc('2')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">2</button>
+                                    <button onClick={() => handleCalc('3')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">3</button>
+                                    <button onClick={() => handleCalc('+')} className="p-3.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-lg rounded-2xl btn-touch">+</button>
+
+                                    <button onClick={() => handleCalc('0')} className="p-3.5 col-span-2 glass-card text-white font-bold text-xl rounded-2xl btn-touch">0</button>
+                                    <button onClick={() => handleCalc('.')} className="p-3.5 glass-card text-white font-bold text-xl rounded-2xl btn-touch">.</button>
+                                    <button onClick={() => handleCalc('=')} className="p-3.5 bg-gradient-to-r from-indigo-600 to-brand-accent text-white font-bold text-2xl rounded-2xl shadow-[0_0_20px_rgba(99,102,241,0.5)] btn-touch">=</button>
                                 </div>
                             </div>
                         )}
 
+                        {/* ===================================== */}
+                        {/* 2. CONVERTER */}
+                        {/* ===================================== */}
                         {activeTab === 'converter' && (
                             <div className="space-y-4">
                                 <div className="flex overflow-x-auto space-x-2 py-1 no-scrollbar">
                                     {[
-                                        { id: 'length', name: 'Length', icon: 'ruler' }, { id: 'mass', name: 'Mass', icon: 'weight-scale' },
-                                        { id: 'volume', name: 'Volume', icon: 'glass-water' }, { id: 'area', name: 'Area', icon: 'chart-area' },
-                                        { id: 'temperature', name: 'Temp', icon: 'temperature-high' }, { id: 'speed', name: 'Speed', icon: 'gauge-high' },
+                                        { id: 'length', name: 'Length', icon: 'ruler' },
+                                        { id: 'mass', name: 'Mass', icon: 'weight-scale' },
+                                        { id: 'volume', name: 'Volume', icon: 'glass-water' },
+                                        { id: 'area', name: 'Area', icon: 'chart-area' },
+                                        { id: 'temperature', name: 'Temp', icon: 'temperature-high' },
+                                        { id: 'speed', name: 'Speed', icon: 'gauge-high' },
                                         { id: 'digital', name: 'Data', icon: 'hard-drive' }
                                     ].map(cat => (
-                                        <button key={cat.id} onClick={() => setConvCat(cat.id)} className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center space-x-1.5 ${convCat === cat.id ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                                            <i className={`fa-solid fa-${cat.icon}`}></i><span>{cat.name}</span>
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => { triggerHaptic(); setConvCat(cat.id); }}
+                                            className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap flex items-center space-x-1.5 transition btn-touch ${
+                                                convCat === cat.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'glass-card text-slate-400'
+                                            }`}
+                                        >
+                                            <i className={`fa-solid fa-${cat.icon}`}></i>
+                                            <span>{cat.name}</span>
                                         </button>
                                     ))}
                                 </div>
-                                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-4">
+
+                                <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-4">
                                     <div>
-                                        <label className="text-xs text-slate-400 font-medium">Input Value</label>
-                                        <input type="number" value={convVal} onChange={e => setConvVal(e.target.value)} className="w-full mt-1.5 bg-slate-900 border border-slate-800 rounded-xl p-3 text-lg font-mono text-white focus:outline-none" />
+                                        <label className="text-xs text-slate-400 font-medium">Input Magnitude</label>
+                                        <input
+                                            type="number"
+                                            value={convVal}
+                                            onChange={e => setConvVal(e.target.value)}
+                                            className="w-full mt-1.5 bg-slate-950/80 border border-white/10 rounded-2xl p-3 text-lg font-mono text-white focus:outline-none focus:border-indigo-500"
+                                        />
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <select value={convFrom} onChange={e => setConvFrom(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-indigo-300 uppercase">
-                                            {Object.keys(CONVERSION_RATES[convCat]).map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
-                                        </select>
-                                        <select value={convTo} onChange={e => setConvTo(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-indigo-300 uppercase">
-                                            {Object.keys(CONVERSION_RATES[convCat]).map(u => <option key={u} value={u}>{u.toUpperCase()}</option>)}
-                                        </select>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">From</label>
+                                            <select
+                                                value={convFrom}
+                                                onChange={e => setConvFrom(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-xl p-2.5 text-sm text-cyan-300 uppercase font-semibold"
+                                            >
+                                                {Object.keys(CONVERSION_RATES[convCat]).map(u => (
+                                                    <option key={u} value={u}>{u.toUpperCase()}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">To</label>
+                                            <select
+                                                value={convTo}
+                                                onChange={e => setConvTo(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-xl p-2.5 text-sm text-cyan-300 uppercase font-semibold"
+                                            >
+                                                {Object.keys(CONVERSION_RATES[convCat]).map(u => (
+                                                    <option key={u} value={u}>{u.toUpperCase()}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900 p-5 rounded-2xl border border-indigo-800/40 text-center">
-                                    <div className="text-xs font-semibold text-indigo-400 uppercase">Converted Result</div>
-                                    <div className="text-3xl font-bold font-mono text-white mt-2">{runConversion()} <span className="text-sm font-sans text-indigo-400 uppercase">{convTo}</span></div>
+
+                                <div className="glass-panel p-5 rounded-3xl border border-indigo-500/20 text-center shadow-[0_0_30px_rgba(99,102,241,0.15)]">
+                                    <div className="text-xs font-semibold text-cyan-400 uppercase tracking-widest">Converted Output</div>
+                                    <div className="text-3xl font-bold font-mono text-white mt-2">
+                                        {runConversion()} <span className="text-sm font-sans text-indigo-400 uppercase">{convTo}</span>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
+                        {/* ===================================== */}
+                        {/* 3. AR MEASUREMENT */}
+                        {/* ===================================== */}
                         {activeTab === 'measure' && (
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center">
-                                    <h2 className="text-sm font-bold text-white">Photo / AR Ruler</h2>
-                                    <select value={calibMode} onChange={e => setCalibMode(e.target.value)} className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-indigo-300">
+                                    <div>
+                                        <h2 className="text-sm font-bold text-white">AR / Photo Scope</h2>
+                                        <p className="text-[11px] text-slate-400">Tap 2 points on reference photo to calculate distance</p>
+                                    </div>
+                                    <select
+                                        value={calibMode}
+                                        onChange={e => setCalibMode(e.target.value)}
+                                        className="text-xs glass-card border border-white/10 rounded-xl px-2.5 py-1.5 text-cyan-300"
+                                    >
                                         <option value="card_3in">Standard Card (3.37 in)</option>
                                         <option value="desk_4ft">Desk Span (4 ft)</option>
                                         <option value="room_15ft">Bedroom (15 ft)</option>
@@ -398,124 +732,441 @@
                                         <option value="field_60ft">Outdoor (60 ft)</option>
                                     </select>
                                 </div>
-                                <div className="relative w-full aspect-[4/3] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center">
+
+                                <div className="relative w-full aspect-[4/3] bg-black/60 rounded-3xl border border-white/10 overflow-hidden flex items-center justify-center">
                                     {cameraActive ? (
                                         <div className="relative w-full h-full flex flex-col justify-end">
                                             <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover"></video>
-                                            <div className="relative z-10 p-3 flex justify-center bg-gradient-to-t from-slate-950/80 to-transparent">
-                                                <button onClick={takeSnapshot} className="w-12 h-12 rounded-full border-4 border-white bg-indigo-600 flex items-center justify-center"><i className="fa-solid fa-camera text-white"></i></button>
+                                            <div className="relative z-10 p-4 flex justify-center bg-gradient-to-t from-black/80 to-transparent">
+                                                <button
+                                                    onClick={takeSnapshot}
+                                                    className="w-14 h-14 rounded-full border-4 border-white bg-indigo-600 flex items-center justify-center shadow-lg btn-touch"
+                                                >
+                                                    <i className="fa-solid fa-camera text-white text-lg"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     ) : capturedImage ? (
-                                        <canvas ref={canvasRef} onClick={onCanvasClick} className="w-full h-full object-contain cursor-crosshair" />
+                                        <canvas
+                                            ref={canvasRef}
+                                            onClick={onCanvasClick}
+                                            className="w-full h-full object-contain cursor-crosshair"
+                                        />
                                     ) : (
                                         <div className="text-center p-6 space-y-3">
-                                            <i className="fa-solid fa-camera text-2xl text-indigo-400"></i>
-                                            <div className="text-xs text-slate-400">Capture or upload an image to measure dimensions</div>
-                                            <div className="flex justify-center space-x-2">
-                                                <button onClick={startCamera} className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-xs">Open Cam</button>
-                                                <button onClick={() => fileRef.current.click()} className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-xl text-xs">Upload File</button>
+                                            <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/10 text-cyan-400 flex items-center justify-center text-xl">
+                                                <i className="fa-solid fa-camera-viewfinder"></i>
+                                            </div>
+                                            <div className="text-xs text-slate-400">Capture scene or select an existing photo</div>
+                                            <div className="flex justify-center space-x-2 pt-1">
+                                                <button onClick={startCamera} className="px-3.5 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/30 btn-touch">
+                                                    Live Cam
+                                                </button>
+                                                <button onClick={() => fileRef.current.click()} className="px-3.5 py-2 glass-card text-slate-300 rounded-xl text-xs font-semibold btn-touch">
+                                                    Upload File
+                                                </button>
                                             </div>
                                         </div>
                                     )}
                                     <input type="file" ref={fileRef} onChange={handleFileImage} accept="image/*" className="hidden" />
                                 </div>
+
+                                {capturedImage && (
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-slate-400">Markers: <strong className="text-cyan-400 font-mono">{points.length} / 2</strong></span>
+                                        <div className="space-x-2">
+                                            <button onClick={() => { triggerHaptic(); setPoints([]); setMeasResult(null); }} className="px-3 py-1.5 glass-card text-slate-300 rounded-xl">Clear</button>
+                                            <button onClick={() => fileRef.current.click()} className="px-3 py-1.5 glass-card text-indigo-300 rounded-xl">New Pic</button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {measResult && (
-                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 gap-2.5">
-                                        <div className="bg-slate-900 p-2.5 rounded-xl"><div className="text-[10px] text-slate-400">Length (Imperial)</div><div className="text-base font-bold font-mono text-white">{measResult.ft} ft ({measResult.in}")</div></div>
-                                        <div className="bg-slate-900 p-2.5 rounded-xl"><div className="text-[10px] text-slate-400">Length (Metric)</div><div className="text-base font-bold font-mono text-white">{measResult.m} m ({measResult.cm} cm)</div></div>
-                                        <div className="bg-slate-900 p-2.5 rounded-xl"><div className="text-[10px] text-slate-400">Est. Area (Imperial)</div><div className="text-base font-bold font-mono text-indigo-300">{measResult.sqFt} sq ft</div></div>
-                                        <div className="bg-slate-900 p-2.5 rounded-xl"><div className="text-[10px] text-slate-400">Est. Area (Metric)</div><div className="text-base font-bold font-mono text-indigo-300">{measResult.sqM} m²</div></div>
+                                    <div className="glass-panel p-4 rounded-3xl border border-white/10 grid grid-cols-2 gap-2.5">
+                                        <div className="glass-card p-3 rounded-2xl">
+                                            <div className="text-[10px] text-slate-400 font-medium">Imperial Distance</div>
+                                            <div className="text-base font-bold font-mono text-white mt-0.5">{measResult.ft} ft ({measResult.in}")</div>
+                                        </div>
+                                        <div className="glass-card p-3 rounded-2xl">
+                                            <div className="text-[10px] text-slate-400 font-medium">Metric Distance</div>
+                                            <div className="text-base font-bold font-mono text-white mt-0.5">{measResult.m} m ({measResult.cm} cm)</div>
+                                        </div>
+                                        <div className="glass-card p-3 rounded-2xl">
+                                            <div className="text-[10px] text-slate-400 font-medium">Estimated Area</div>
+                                            <div className="text-base font-bold font-mono text-cyan-300 mt-0.5">{measResult.sqFt} sq ft</div>
+                                        </div>
+                                        <div className="glass-card p-3 rounded-2xl">
+                                            <div className="text-[10px] text-slate-400 font-medium">Metric Area</div>
+                                            <div className="text-base font-bold font-mono text-cyan-300 mt-0.5">{measResult.sqM} m²</div>
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
+                        {/* ===================================== */}
+                        {/* 4. FINANCIAL SUITE (INR) */}
+                        {/* ===================================== */}
                         {activeTab === 'finance' && (
                             <div className="space-y-4">
-                                <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl text-xs border border-slate-800">
-                                    <button onClick={() => setFinTab('loan')} className={`py-1.5 rounded-lg ${finTab === 'loan' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Loan EMI</button>
-                                    <button onClick={() => setFinTab('compound')} className={`py-1.5 rounded-lg ${finTab === 'compound' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Growth</button>
-                                    <button onClick={() => setFinTab('tip')} className={`py-1.5 rounded-lg ${finTab === 'tip' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Tip Split</button>
+                                <div className="grid grid-cols-3 gap-1 glass-card p-1 rounded-2xl text-xs">
+                                    <button
+                                        onClick={() => { triggerHaptic(); setFinTab('loan'); }}
+                                        className={`py-2 rounded-xl font-semibold transition btn-touch ${finTab === 'loan' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >
+                                        Loan EMI
+                                    </button>
+                                    <button
+                                        onClick={() => { triggerHaptic(); setFinTab('sip'); }}
+                                        className={`py-2 rounded-xl font-semibold transition btn-touch ${finTab === 'sip' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >
+                                        SIP / Growth
+                                    </button>
+                                    <button
+                                        onClick={() => { triggerHaptic(); setFinTab('gst'); }}
+                                        className={`py-2 rounded-xl font-semibold transition btn-touch ${finTab === 'gst' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >
+                                        GST & Tax
+                                    </button>
                                 </div>
+
+                                {/* LOAN EMI */}
                                 {finTab === 'loan' && (
-                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                                        <input type="number" placeholder="Principal ($)" value={loanPrincipal} onChange={e => setLoanPrincipal(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <input type="number" step="0.1" placeholder="Interest (%)" value={loanInterest} onChange={e => setLoanInterest(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                            <input type="number" placeholder="Tenure (Years)" value={loanYears} onChange={e => setLoanYears(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
+                                    <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-3.5">
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Loan Amount (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={loanPrincipal}
+                                                onChange={e => setLoanPrincipal(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+                                            />
                                         </div>
-                                        <div className="p-4 bg-indigo-950/40 border border-indigo-900/60 rounded-xl">
-                                            <div className="text-xs text-indigo-300 uppercase">Monthly EMI</div>
-                                            <div className="text-2xl font-bold font-mono text-white mt-1">
-                                                ${(() => {
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-medium">Rate (% p.a.)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={loanInterest}
+                                                    onChange={e => setLoanInterest(e.target.value)}
+                                                    className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-medium">Tenure (Years)</label>
+                                                <input
+                                                    type="number"
+                                                    value={loanYears}
+                                                    onChange={e => setLoanYears(e.target.value)}
+                                                    className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white focus:outline-none focus:border-indigo-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 bg-gradient-to-br from-indigo-950/50 via-slate-900 to-slate-950 rounded-2xl border border-indigo-500/30 mt-3 space-y-2">
+                                            <div className="text-[11px] text-cyan-300 font-semibold uppercase tracking-wider">Monthly Loan EMI</div>
+                                            <div className="text-2xl font-bold font-mono text-white">
+                                                {(() => {
                                                     const p = parseFloat(loanPrincipal) || 0;
                                                     const r = (parseFloat(loanInterest) || 0) / 12 / 100;
                                                     const n = (parseFloat(loanYears) || 0) * 12;
-                                                    if (!p || !r || !n) return '0.00';
-                                                    return ((p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)).toFixed(2);
+                                                    if (!p || !r || !n) return '₹0.00';
+                                                    const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                                                    return formatINR(emi);
                                                 })()}
+                                            </div>
+                                            <div className="text-[11px] text-slate-400 pt-2 border-t border-white/10 flex justify-between">
+                                                <span>Total Payable:</span>
+                                                <span className="font-mono text-slate-200">
+                                                    {(() => {
+                                                        const p = parseFloat(loanPrincipal) || 0;
+                                                        const r = (parseFloat(loanInterest) || 0) / 12 / 100;
+                                                        const n = (parseFloat(loanYears) || 0) * 12;
+                                                        if (!p || !r || !n) return '₹0.00';
+                                                        const emi = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+                                                        return formatINR(emi * n);
+                                                    })()}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                                {finTab === 'compound' && (
-                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                                        <input type="number" placeholder="Initial ($)" value={invInit} onChange={e => setInvInit(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <input type="number" placeholder="Monthly Add ($)" value={invMonthly} onChange={e => setInvMonthly(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                            <input type="number" placeholder="Growth (%)" value={invAnnual} onChange={e => setInvAnnual(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
+
+                                {/* SIP / INVESTMENT GROWTH */}
+                                {finTab === 'sip' && (
+                                    <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-3.5">
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Initial Lumpsum (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={invInit}
+                                                onChange={e => setInvInit(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
                                         </div>
-                                        <input type="number" placeholder="Years" value={invYears} onChange={e => setInvYears(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                        <div className="p-4 bg-indigo-950/40 border border-indigo-900/60 rounded-xl">
-                                            <div className="text-xs text-indigo-300 uppercase">Future Portfolio Value</div>
-                                            <div className="text-2xl font-bold font-mono text-white mt-1">
-                                                ${(() => {
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-medium">Monthly SIP (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    value={invMonthly}
+                                                    onChange={e => setInvMonthly(e.target.value)}
+                                                    className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-medium">Expected Return (% p.a.)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.5"
+                                                    value={invAnnual}
+                                                    onChange={e => setInvAnnual(e.target.value)}
+                                                    className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Duration (Years)</label>
+                                            <input
+                                                type="number"
+                                                value={invYears}
+                                                onChange={e => setInvYears(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
+                                        </div>
+
+                                        <div className="p-4 bg-gradient-to-br from-indigo-950/50 via-slate-900 to-slate-950 rounded-2xl border border-indigo-500/30 mt-3 space-y-1">
+                                            <div className="text-[11px] text-cyan-300 font-semibold uppercase tracking-wider">Projected Corpus</div>
+                                            <div className="text-2xl font-bold font-mono text-white">
+                                                {(() => {
                                                     const p = parseFloat(invInit) || 0;
                                                     const pmt = parseFloat(invMonthly) || 0;
                                                     const r = (parseFloat(invAnnual) || 0) / 100 / 12;
                                                     const n = (parseFloat(invYears) || 0) * 12;
-                                                    if (!n) return p.toFixed(2);
-                                                    return (p * Math.pow(1 + r, n) + (r > 0 ? pmt * ((Math.pow(1 + r, n) - 1) / r) : pmt * n)).toFixed(2);
+                                                    if (!n) return formatINR(p);
+                                                    const total = p * Math.pow(1 + r, n) + (r > 0 ? pmt * ((Math.pow(1 + r, n) - 1) / r) : pmt * n);
+                                                    return formatINR(total);
                                                 })()}
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                                {finTab === 'tip' && (
-                                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                                        <input type="number" placeholder="Bill ($)" value={tipBill} onChange={e => setTipBill(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                        <div className="flex space-x-2">
-                                            {['10', '15', '18', '20', '25'].map(p => (
-                                                <button key={p} onClick={() => setTipRate(p)} className={`flex-1 py-1.5 rounded-lg text-xs font-semibold ${tipRate === p ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>{p}%</button>
-                                            ))}
+
+                                {/* GST & TAX CALCULATOR */}
+                                {finTab === 'gst' && (
+                                    <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-3.5">
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Amount (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={gstBase}
+                                                onChange={e => setGstBase(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
                                         </div>
-                                        <input type="number" min="1" placeholder="Split Count" value={tipSplit} onChange={e => setTipSplit(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-white" />
-                                        <div className="p-3 bg-indigo-950/30 rounded-xl border border-indigo-900/50 flex justify-between">
-                                            <div><div className="text-[11px] text-indigo-300">Total Tip</div><div className="text-lg font-bold font-mono text-white">${(((parseFloat(tipBill) || 0) * (parseFloat(tipRate) || 0)) / 100).toFixed(2)}</div></div>
-                                            <div className="text-right"><div className="text-[11px] text-indigo-300">Per Person</div><div className="text-lg font-bold font-mono text-white">${(((parseFloat(tipBill) || 0) * (1 + (parseFloat(tipRate) || 0) / 100)) / Math.max(1, parseInt(tipSplit) || 1)).toFixed(2)}</div></div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">GST Slab (%)</label>
+                                            <div className="flex space-x-2 mt-1">
+                                                {['5', '12', '18', '28'].map(rate => (
+                                                    <button
+                                                        key={rate}
+                                                        onClick={() => { triggerHaptic(); setGstRate(rate); }}
+                                                        className={`flex-1 py-1.5 rounded-xl text-xs font-semibold btn-touch ${
+                                                            gstRate === rate ? 'bg-indigo-600 text-white shadow-md' : 'glass-card text-slate-400'
+                                                        }`}
+                                                    >
+                                                        {rate}%
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 mt-1">
+                                            <button
+                                                onClick={() => setGstType('exclusive')}
+                                                className={`py-1.5 rounded-xl text-xs font-semibold ${gstType === 'exclusive' ? 'bg-white/10 text-cyan-300 border border-cyan-400/30' : 'glass-card text-slate-400'}`}
+                                            >
+                                                Add GST (+GST)
+                                            </button>
+                                            <button
+                                                onClick={() => setGstType('inclusive')}
+                                                className={`py-1.5 rounded-xl text-xs font-semibold ${gstType === 'inclusive' ? 'bg-white/10 text-cyan-300 border border-cyan-400/30' : 'glass-card text-slate-400'}`}
+                                            >
+                                                Extract GST (-GST)
+                                            </button>
+                                        </div>
+
+                                        <div className="p-4 bg-gradient-to-br from-indigo-950/50 to-slate-950 rounded-2xl border border-indigo-500/30 space-y-2">
+                                            {(() => {
+                                                const amt = parseFloat(gstBase) || 0;
+                                                const rate = parseFloat(gstRate) || 0;
+                                                let taxAmt = 0;
+                                                let finalAmt = 0;
+                                                if (gstType === 'exclusive') {
+                                                    taxAmt = (amt * rate) / 100;
+                                                    finalAmt = amt + taxAmt;
+                                                } else {
+                                                    taxAmt = amt - (amt * (100 / (100 + rate)));
+                                                    finalAmt = amt;
+                                                }
+                                                return (
+                                                    <>
+                                                        <div className="flex justify-between text-xs text-slate-300">
+                                                            <span>Total GST Amount:</span>
+                                                            <strong className="text-cyan-300 font-mono">{formatINR(taxAmt)}</strong>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs text-slate-400">
+                                                            <span>CGST ({rate/2}%) + SGST ({rate/2}%):</span>
+                                                            <span className="font-mono">{formatINR(taxAmt / 2)} each</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-sm text-white pt-2 border-t border-white/10 font-bold">
+                                                            <span>Net Total:</span>
+                                                            <span className="font-mono text-emerald-400">{formatINR(finalAmt)}</span>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 )}
                             </div>
                         )}
 
+                        {/* ===================================== */}
+                        {/* 5. HEALTH & FITNESS */}
+                        {/* ===================================== */}
+                        {activeTab === 'health' && (
+                            <div className="space-y-4">
+                                <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-3.5">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Height (cm)</label>
+                                            <input
+                                                type="number"
+                                                value={userHeight}
+                                                onChange={e => setUserHeight(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Weight (kg)</label>
+                                            <input
+                                                type="number"
+                                                value={userWeight}
+                                                onChange={e => setUserWeight(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Age</label>
+                                            <input
+                                                type="number"
+                                                value={userAge}
+                                                onChange={e => setUserAge(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm font-mono text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-medium">Gender</label>
+                                            <select
+                                                value={userGender}
+                                                onChange={e => setUserGender(e.target.value)}
+                                                className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm text-cyan-300 font-semibold"
+                                            >
+                                                <option value="male">Male</option>
+                                                <option value="female">Female</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {health && (
+                                    <div className="space-y-3">
+                                        <div className="glass-panel p-4 rounded-3xl border border-white/10 flex items-center justify-between">
+                                            <div>
+                                                <div className="text-xs text-slate-400 font-medium">Body Mass Index (BMI)</div>
+                                                <div className="text-3xl font-extrabold font-mono text-white mt-0.5">{health.bmi}</div>
+                                                <div className={`text-xs font-semibold mt-1 ${health.color}`}>{health.category}</div>
+                                            </div>
+                                            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-cyan-400 text-2xl">
+                                                <i className="fa-solid fa-heart-pulse"></i>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="glass-card p-3 rounded-2xl text-center">
+                                                <div className="text-[10px] text-slate-400 font-medium">Daily BMR</div>
+                                                <div className="text-base font-bold font-mono text-white mt-1">{health.bmr}</div>
+                                                <span className="text-[9px] text-slate-500">kcal/day</span>
+                                            </div>
+                                            <div className="glass-card p-3 rounded-2xl text-center">
+                                                <div className="text-[10px] text-slate-400 font-medium">Ideal Weight</div>
+                                                <div className="text-base font-bold font-mono text-white mt-1">{health.ideal}</div>
+                                                <span className="text-[9px] text-slate-500">kg</span>
+                                            </div>
+                                            <div className="glass-card p-3 rounded-2xl text-center">
+                                                <div className="text-[10px] text-slate-400 font-medium">Water Goal</div>
+                                                <div className="text-base font-bold font-mono text-cyan-400 mt-1">{health.water}</div>
+                                                <span className="text-[9px] text-slate-500">Liters</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ===================================== */}
+                        {/* 6. CHRONOLOGICAL AGE */}
+                        {/* ===================================== */}
                         {activeTab === 'date' && (
                             <div className="space-y-4">
-                                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
-                                    <input type="date" value={dob} onChange={e => setDob(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white" />
-                                    <input type="date" value={cmpDate} onChange={e => setCmpDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-sm text-white" />
+                                <div className="glass-panel p-4 rounded-3xl border border-white/10 space-y-3">
+                                    <div>
+                                        <label className="text-xs text-slate-400 font-medium">Date of Birth</label>
+                                        <input
+                                            type="date"
+                                            value={dob}
+                                            onChange={e => setDob(e.target.value)}
+                                            className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 font-medium">Evaluation Date</label>
+                                        <input
+                                            type="date"
+                                            value={cmpDate}
+                                            onChange={e => setCmpDate(e.target.value)}
+                                            className="w-full mt-1 bg-slate-950/80 border border-white/10 rounded-2xl p-2.5 text-sm text-white"
+                                        />
+                                    </div>
                                 </div>
+
                                 {age && (
                                     <div className="space-y-3">
-                                        <div className="bg-gradient-to-br from-indigo-950/50 to-slate-950 p-4 rounded-2xl border border-indigo-800/40">
-                                            <div className="text-xs font-semibold text-indigo-300 uppercase">Exact Chronological Age</div>
-                                            <div className="text-2xl font-bold text-white mt-1">{age.y} yrs {age.m} mos {age.d} days</div>
+                                        <div className="glass-panel p-4 rounded-3xl border border-indigo-500/20">
+                                            <div className="text-[11px] font-semibold text-cyan-400 uppercase tracking-widest">Chronological Age</div>
+                                            <div className="text-2xl font-bold text-white mt-1">
+                                                {age.y} <span className="text-sm font-normal text-slate-400">years</span> {age.m} <span className="text-sm font-normal text-slate-400">months</span> {age.d} <span className="text-sm font-normal text-slate-400">days</span>
+                                            </div>
                                         </div>
+
                                         <div className="grid grid-cols-3 gap-2 text-center">
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800"><div className="text-[10px] text-slate-400">Weeks</div><div className="text-base font-bold font-mono text-white">{age.totalWeeks.toLocaleString()}</div></div>
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800"><div className="text-[10px] text-slate-400">Total Days</div><div className="text-base font-bold font-mono text-white">{age.totalDays.toLocaleString()}</div></div>
-                                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800"><div className="text-[10px] text-slate-400">Next B'day</div><div className="text-base font-bold font-mono text-white">{age.daysToBday}d</div></div>
+                                            <div className="glass-card p-3 rounded-2xl">
+                                                <div className="text-[10px] text-slate-400 font-medium">Weeks</div>
+                                                <div className="text-base font-bold font-mono text-white mt-0.5">{age.totalWeeks.toLocaleString()}</div>
+                                            </div>
+                                            <div className="glass-card p-3 rounded-2xl">
+                                                <div className="text-[10px] text-slate-400 font-medium">Total Days</div>
+                                                <div className="text-base font-bold font-mono text-white mt-0.5">{age.totalDays.toLocaleString()}</div>
+                                            </div>
+                                            <div className="glass-card p-3 rounded-2xl">
+                                                <div className="text-[10px] text-slate-400 font-medium">Next B'day</div>
+                                                <div className="text-base font-bold font-mono text-cyan-400 mt-0.5">{age.daysToBday}d</div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -523,17 +1174,25 @@
                         )}
                     </main>
 
-                    <nav className="fixed bottom-0 w-full max-w-md bg-slate-950/95 backdrop-blur border-t border-slate-800 px-3 py-2 z-20 flex justify-between items-center">
+                    {/* Navigation Bar with Safe Area Support for Apple Home Bar */}
+                    <nav className="fixed bottom-0 w-full max-w-md bg-slate-950/90 backdrop-blur-2xl border-t border-surfaceBorder px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] z-40 flex justify-between items-center">
                         {[
                             { id: 'calc', label: 'Calc', icon: 'calculator' },
                             { id: 'converter', label: 'Convert', icon: 'arrow-right-arrow-left' },
                             { id: 'measure', label: 'Measure', icon: 'ruler-combined' },
-                            { id: 'finance', label: 'Finance', icon: 'coins' },
+                            { id: 'finance', label: 'Finance', icon: 'indian-rupee-sign' },
+                            { id: 'health', label: 'Health', icon: 'heart-pulse' },
                             { id: 'date', label: 'Age', icon: 'calendar-day' }
                         ].map(tab => (
-                            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${activeTab === tab.id ? 'text-indigo-400 font-semibold' : 'text-slate-500 hover:text-slate-300'}`}>
-                                <i className={`fa-solid fa-${tab.icon} text-base mb-1`}></i>
-                                <span className="text-[10px]">{tab.label}</span>
+                            <button
+                                key={tab.id}
+                                onClick={() => { triggerHaptic(); setActiveTab(tab.id); }}
+                                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition btn-touch ${
+                                    activeTab === tab.id ? 'text-cyan-400 font-bold' : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                            >
+                                <i className={`fa-solid fa-${tab.icon} text-base mb-1 ${activeTab === tab.id ? 'drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]' : ''}`}></i>
+                                <span className="text-[9px] tracking-tight">{tab.label}</span>
                             </button>
                         ))}
                     </nav>
