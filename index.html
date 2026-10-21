@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OmniCalc Pro - Universal Suite</title>
+    <title>OmniCalc Pro - Universal Suite with GPS</title>
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,12 +11,12 @@
     <meta name="theme-color" content="#f1f3f6">
     <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22OmniCalc%20Pro%22%2C%22short_name%22%3A%22OmniCalc%22%2C%22start_url%22%3A%22%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f1f3f6%22%2C%22theme_color%22%3A%22%23ff9500%22%7D">
 
-    <!-- High-Speed Cloudflare CDNs -->
+    <!-- High-Speed Cloudflare CDNs + EXIF GPS Scanner -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.8/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
     <style>
@@ -48,7 +48,7 @@
 <body class="text-slate-800 antialiased">
     <div id="root">
         <div style="height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#64748b;font-size:14px;">
-            Loading OmniCalc Pro...
+            Loading OmniCalc Pro with GPS...
         </div>
     </div>
 
@@ -93,13 +93,14 @@
             const [convTo, setConvTo] = useState('ft');
             const [convVal, setConvVal] = useState('1');
 
-            // --- ADVANCED AR MEASUREMENT ---
+            // --- MEASUREMENT & GPS ---
             const [capturedImage, setCapturedImage] = useState(null);
-            const [measureShape, setMeasureShape] = useState('polygon'); // 'line', 'polygon', 'circle'
+            const [measureShape, setMeasureShape] = useState('polygon');
             const [calibMode, setCalibMode] = useState('door_7ft');
             const [points, setPoints] = useState([]);
             const [measResult, setMeasResult] = useState(null);
             const [cameraActive, setCameraActive] = useState(false);
+            const [photoGps, setPhotoGps] = useState(null); // { lat, lng, source }
 
             // --- FINANCE (INR) ---
             const [finTab, setFinTab] = useState('loan');
@@ -209,10 +210,10 @@
                 return parseFloat(((val * catMap[convFrom]) / catMap[convTo]).toFixed(6));
             };
 
-            // Camera Stream
+            // Camera & EXIF GPS Location Extractor
             const startCamera = async () => {
                 try {
-                    setCapturedImage(null); setPoints([]); setMeasResult(null); setCameraActive(true);
+                    setCapturedImage(null); setPoints([]); setMeasResult(null); setPhotoGps(null); setCameraActive(true);
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
                     });
@@ -232,23 +233,75 @@
                 canvas.height = vid.videoHeight || 720;
                 canvas.getContext('2d').drawImage(vid, 0, 0, canvas.width, canvas.height);
                 setCapturedImage(canvas.toDataURL('image/jpeg'));
-                if (vid.srcObject) {
-                    vid.srcObject.getTracks().forEach(t => t.stop());
-                }
+                if (vid.srcObject) vid.srcObject.getTracks().forEach(t => t.stop());
                 setCameraActive(false);
+
+                // For live camera, ask device for current real-time GPS
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        setPhotoGps({
+                            lat: pos.coords.latitude.toFixed(6),
+                            lng: pos.coords.longitude.toFixed(6),
+                            source: 'Live GPS'
+                        });
+                    }, () => {});
+                }
+            };
+
+            const convertDMSToDD = (degrees, minutes, seconds, direction) => {
+                let dd = degrees + minutes / 60 + seconds / (60 * 60);
+                if (direction === "S" || direction === "W") dd = dd * -1;
+                return dd;
             };
 
             const handleFileImage = (e) => {
-                const f = e.target.files[0];
-                if (f) {
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                        setCapturedImage(ev.target.result);
-                        setPoints([]);
-                        setMeasResult(null);
-                        setCameraActive(false);
-                    };
-                    reader.readAsDataURL(f);
+                const file = e.target.files[0];
+                if (!file) return;
+
+                setPoints([]);
+                setMeasResult(null);
+                setPhotoGps(null);
+                setCameraActive(false);
+
+                // 1. Read Image Data
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    setCapturedImage(ev.target.result);
+                };
+                reader.readAsDataURL(file);
+
+                // 2. Scan EXIF Metadata for GPS Tags
+                if (window.EXIF) {
+                    window.EXIF.getData(file, function() {
+                        const lat = window.EXIF.getTag(this, "GPSLatitude");
+                        const latRef = window.EXIF.getTag(this, "GPSLatitudeRef");
+                        const lng = window.EXIF.getTag(this, "GPSLongitude");
+                        const lngRef = window.EXIF.getTag(this, "GPSLongitudeRef");
+
+                        if (lat && lng && latRef && lngRef) {
+                            const decLat = convertDMSToDD(lat[0], lat[1], lat[2], latRef).toFixed(6);
+                            const decLng = convertDMSToDD(lng[0], lng[1], lng[2], lngRef).toFixed(6);
+                            setPhotoGps({ lat: decLat, lng: decLng, source: 'Photo Metadata' });
+                        }
+                    });
+                }
+            };
+
+            const getLiveGPS = () => {
+                triggerHaptic();
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => {
+                            setPhotoGps({
+                                lat: pos.coords.latitude.toFixed(6),
+                                lng: pos.coords.longitude.toFixed(6),
+                                source: 'Device Location'
+                            });
+                        },
+                        () => alert('Please enable Location/GPS permission in your browser settings.')
+                    );
+                } else {
+                    alert('Geolocation is not supported on this device.');
                 }
             };
 
@@ -276,7 +329,6 @@
                         ctx.lineWidth = lineWidth;
                         ctx.stroke();
 
-                        // Radius Line
                         ctx.beginPath();
                         ctx.moveTo(points[0].x, points[0].y);
                         ctx.lineTo(points[1].x, points[1].y);
@@ -299,7 +351,6 @@
                         ctx.stroke();
                     }
 
-                    // Draw Pins
                     points.forEach((pt, i) => {
                         ctx.fillStyle = i === 0 ? '#10b981' : (i === points.length - 1 ? '#f43f5e' : '#3b82f6');
                         ctx.beginPath();
@@ -309,7 +360,6 @@
                         ctx.lineWidth = Math.max(2, canvas.width / 220);
                         ctx.stroke();
 
-                        // Point Number Tag
                         ctx.fillStyle = '#ffffff';
                         ctx.font = `bold ${Math.max(12, canvas.width / 55)}px sans-serif`;
                         ctx.textAlign = 'center';
@@ -325,11 +375,11 @@
                 const scopes = {
                     card_3in: 0.28,
                     desk_4ft: 4.0,
-                    door_7ft: 7.0,     // Standard door height (~7 ft / 2.13m)
+                    door_7ft: 7.0,
                     room_15ft: 15.0,
                     room_20ft: 20.0,
                     field_60ft: 60.0,
-                    land_200ft: 200.0   // Property / acreage view
+                    land_200ft: 200.0
                 };
                 const sceneScaleFeet = scopes[calibMode] || 15.0;
                 const diagPixels = Math.hypot(w, h);
@@ -340,18 +390,14 @@
                     const rFeet = rPixels * feetPerPixel;
                     const rMeters = rFeet * 0.3048;
                     const areaSqFt = Math.PI * Math.pow(rFeet, 2);
-                    const areaSqM = areaSqFt * 0.092903;
-                    const circumferenceFt = 2 * Math.PI * rFeet;
 
                     setMeasResult({
                         type: 'circle',
                         radiusFt: rFeet.toFixed(2),
                         radiusM: rMeters.toFixed(2),
-                        circumferenceFt: circumferenceFt.toFixed(2),
                         areaSqFt: areaSqFt.toFixed(2),
-                        areaSqM: areaSqM.toFixed(2),
-                        acres: (areaSqFt / 43560).toFixed(4),
-                        gaj: (areaSqFt / 9).toFixed(1)
+                        areaSqM: (areaSqFt * 0.092903).toFixed(2),
+                        circumferenceFt: (2 * Math.PI * rFeet).toFixed(2)
                     });
                 } else if (measureShape === 'line' && pts.length >= 2) {
                     const pixelDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
@@ -366,7 +412,6 @@
                         cm: (lenM * 100).toFixed(1)
                     });
                 } else if (measureShape === 'polygon' && pts.length >= 3) {
-                    // Shoelace Formula for arbitrary polygon area
                     let pixelArea = 0;
                     let perimeterPixels = 0;
                     const n = pts.length;
@@ -380,20 +425,16 @@
 
                     const sqFeetPerPixelSq = Math.pow(feetPerPixel, 2);
                     const areaSqFt = pixelArea * sqFeetPerPixelSq;
-                    const areaSqM = areaSqFt * 0.092903;
-                    const perimeterFt = perimeterPixels * feetPerPixel;
-                    const perimeterM = perimeterFt * 0.3048;
 
                     setMeasResult({
                         type: 'polygon',
                         ptsCount: n,
                         areaSqFt: areaSqFt.toFixed(2),
-                        areaSqM: areaSqM.toFixed(2),
+                        areaSqM: (areaSqFt * 0.092903).toFixed(2),
                         acres: (areaSqFt / 43560).toFixed(4),
-                        cents: (areaSqFt / 435.6).toFixed(2), // 1 Cent = 435.6 sq ft
-                        gaj: (areaSqFt / 9).toFixed(1),       // 1 Square Yard = 9 sq ft
-                        perimeterFt: perimeterFt.toFixed(2),
-                        perimeterM: perimeterM.toFixed(2)
+                        cents: (areaSqFt / 435.6).toFixed(2),
+                        gaj: (areaSqFt / 9).toFixed(1),
+                        perimeterFt: (perimeterPixels * feetPerPixel).toFixed(2)
                     });
                 }
             };
@@ -473,7 +514,7 @@
                         </button>
                     </header>
 
-                    {/* Main Body */}
+                    {/* Main Workspace */}
                     <main className="flex-1 overflow-y-auto no-scrollbar px-4 pb-24 flex flex-col justify-end">
                         {/* 1. CALCULATOR */}
                         {activeTab === 'calc' && (
@@ -608,10 +649,10 @@
                             </div>
                         )}
 
-                        {/* 3. AR / CAMERA MEASUREMENT & MULTI-POINT AREA */}
+                        {/* 3. AR MEASUREMENT & GOOGLE MAPS LOCATOR */}
                         {activeTab === 'measure' && (
                             <div className="space-y-3 pt-3">
-                                {/* Mode & Calibration Selector */}
+                                {/* Mode Selector */}
                                 <div className="flex flex-col space-y-2">
                                     <div className="flex space-x-1 bg-slate-200/80 p-1 rounded-full text-xs">
                                         <button
@@ -676,7 +717,7 @@
                                             <div className="w-12 h-12 mx-auto rounded-full bg-white shadow-sm flex items-center justify-center text-[#ff9500] text-xl">
                                                 <i className="fa-solid fa-camera"></i>
                                             </div>
-                                            <div className="text-xs text-slate-500">Capture scene or select a reference image</div>
+                                            <div className="text-xs text-slate-500">Capture scene or upload house / land photo</div>
                                             <div className="flex justify-center space-x-2 pt-1">
                                                 <button onClick={startCamera} className="px-4 py-2 bg-[#ff9500] text-white rounded-full text-xs font-semibold shadow">
                                                     Open Cam
@@ -690,14 +731,56 @@
                                     <input type="file" ref={fileRef} onChange={handleFileImage} accept="image/*" className="hidden" />
                                 </div>
 
+                                {/* Action Bar & Google Maps Button */}
                                 {capturedImage && (
-                                    <div className="flex justify-between items-center text-xs px-1">
-                                        <span className="text-slate-500">
-                                            Points: <strong className="text-[#ff9500] font-mono">{points.length}</strong> {measureShape === 'polygon' ? '(Tap corners)' : ''}
-                                        </span>
-                                        <div className="space-x-2">
-                                            <button onClick={() => { setPoints([]); setMeasResult(null); }} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">Clear</button>
-                                            <button onClick={() => fileRef.current.click()} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">New Pic</button>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs px-1">
+                                            <span className="text-slate-500">
+                                                Points: <strong className="text-[#ff9500] font-mono">{points.length}</strong> {measureShape === 'polygon' ? '(Tap corners)' : ''}
+                                            </span>
+                                            <div className="space-x-2">
+                                                <button onClick={() => { setPoints([]); setMeasResult(null); }} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">Clear</button>
+                                                <button onClick={() => fileRef.current.click()} className="px-3 py-1 bg-white border border-slate-200 rounded-full text-slate-700 font-medium">New Pic</button>
+                                            </div>
+                                        </div>
+
+                                        {/* INSTANT GOOGLE MAPS CARD */}
+                                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                                            {photoGps ? (
+                                                <>
+                                                    <div>
+                                                        <div className="text-[10px] text-slate-400 font-semibold uppercase">
+                                                            <i className="fa-solid fa-location-dot text-emerald-500 mr-1"></i> {photoGps.source} Found
+                                                        </div>
+                                                        <div className="text-xs font-mono font-bold text-slate-800 mt-0.5">
+                                                            {photoGps.lat}, {photoGps.lng}
+                                                        </div>
+                                                    </div>
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${photoGps.lat},${photoGps.lng}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center space-x-1 shadow transition"
+                                                    >
+                                                        <i className="fa-solid fa-map-location-dot"></i>
+                                                        <span>Open Map</span>
+                                                    </a>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-xs text-slate-500">
+                                                        <i className="fa-solid fa-location-crosshairs text-orange-500 mr-1"></i>
+                                                        No GPS in photo?
+                                                    </div>
+                                                    <button
+                                                        onClick={getLiveGPS}
+                                                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center space-x-1 border border-slate-200 transition"
+                                                    >
+                                                        <i className="fa-solid fa-location-arrow text-orange-500"></i>
+                                                        <span>Tag Live GPS</span>
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -732,7 +815,7 @@
                                                     </div>
                                                 </div>
                                                 <div className="text-[11px] text-slate-500 text-center pt-1">
-                                                    Boundary Perimeter: <strong>{measResult.perimeterFt} ft ({measResult.perimeterM} m)</strong>
+                                                    Boundary Perimeter: <strong>{measResult.perimeterFt} ft</strong>
                                                 </div>
                                             </>
                                         )}
@@ -759,9 +842,6 @@
                                                 <div className="bg-slate-50 p-2.5 rounded-2xl">
                                                     <div className="text-[10px] text-slate-400 font-medium">Radius</div>
                                                     <div className="text-base font-bold font-mono text-slate-900 mt-0.5">{measResult.radiusFt} ft</div>
-                                                </div>
-                                                <div className="bg-slate-50 p-2.5 rounded-2xl col-span-2 text-center">
-                                                    <span className="text-[11px] text-slate-500">Circumference: <strong>{measResult.circumferenceFt} ft</strong></span>
                                                 </div>
                                             </div>
                                         )}
@@ -898,7 +978,7 @@
                         )}
                     </main>
 
-                    {/* Navigation Bar with all 6 tools */}
+                    {/* Navigation Bar */}
                     <nav className="fixed bottom-0 w-full max-w-md bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 pt-2 pb-3 z-30 flex justify-between items-center">
                         {[
                             { id: 'calc', label: 'Calc', icon: 'calculator' },
