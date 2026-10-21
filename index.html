@@ -100,7 +100,8 @@
             const [points, setPoints] = useState([]);
             const [measResult, setMeasResult] = useState(null);
             const [cameraActive, setCameraActive] = useState(false);
-            const [photoGps, setPhotoGps] = useState(null); // { lat, lng, source }
+            const [photoGps, setPhotoGps] = useState(null); // { lat, lng, isFromFile: boolean }
+            const [gpsStatusMessage, setGpsStatusMessage] = useState('');
 
             // --- FINANCE (INR) ---
             const [finTab, setFinTab] = useState('loan');
@@ -210,10 +211,10 @@
                 return parseFloat(((val * catMap[convFrom]) / catMap[convTo]).toFixed(6));
             };
 
-            // Camera & EXIF GPS Location Extractor
+            // Camera Stream
             const startCamera = async () => {
                 try {
-                    setCapturedImage(null); setPoints([]); setMeasResult(null); setPhotoGps(null); setCameraActive(true);
+                    setCapturedImage(null); setPoints([]); setMeasResult(null); setPhotoGps(null); setGpsStatusMessage(''); setCameraActive(true);
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
                     });
@@ -235,21 +236,11 @@
                 setCapturedImage(canvas.toDataURL('image/jpeg'));
                 if (vid.srcObject) vid.srcObject.getTracks().forEach(t => t.stop());
                 setCameraActive(false);
-
-                // For live camera, ask device for current real-time GPS
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        setPhotoGps({
-                            lat: pos.coords.latitude.toFixed(6),
-                            lng: pos.coords.longitude.toFixed(6),
-                            source: 'Live GPS'
-                        });
-                    }, () => {});
-                }
+                setGpsStatusMessage('Live photo taken. Tap "Pin Live GPS" if you wish to tag this location.');
             };
 
             const convertDMSToDD = (degrees, minutes, seconds, direction) => {
-                let dd = degrees + minutes / 60 + seconds / (60 * 60);
+                let dd = Number(degrees) + Number(minutes) / 60 + Number(seconds) / (60 * 60);
                 if (direction === "S" || direction === "W") dd = dd * -1;
                 return dd;
             };
@@ -261,16 +252,17 @@
                 setPoints([]);
                 setMeasResult(null);
                 setPhotoGps(null);
+                setGpsStatusMessage('Scanning photo for embedded GPS tags...');
                 setCameraActive(false);
 
-                // 1. Read Image Data
+                // 1. Read preview image
                 const reader = new FileReader();
                 reader.onload = ev => {
                     setCapturedImage(ev.target.result);
                 };
                 reader.readAsDataURL(file);
 
-                // 2. Scan EXIF Metadata for GPS Tags
+                // 2. Scan EXIF tags directly from file binary
                 if (window.EXIF) {
                     window.EXIF.getData(file, function() {
                         const lat = window.EXIF.getTag(this, "GPSLatitude");
@@ -281,31 +273,35 @@
                         if (lat && lng && latRef && lngRef) {
                             const decLat = convertDMSToDD(lat[0], lat[1], lat[2], latRef).toFixed(6);
                             const decLng = convertDMSToDD(lng[0], lng[1], lng[2], lngRef).toFixed(6);
-                            setPhotoGps({ lat: decLat, lng: decLng, source: 'Photo Metadata' });
+                            setPhotoGps({ lat: decLat, lng: decLng, isFromFile: true });
+                            setGpsStatusMessage('Location found in photo!');
+                        } else {
+                            setPhotoGps(null);
+                            setGpsStatusMessage('No GPS tag found in this file (e.g. WhatsApp / Screenshots delete GPS tags).');
                         }
                     });
                 }
             };
 
-            const getLiveGPS = () => {
+            const pinLiveGPS = () => {
                 triggerHaptic();
                 if (navigator.geolocation) {
+                    setGpsStatusMessage('Acquiring phone satellite GPS...');
                     navigator.geolocation.getCurrentPosition(
                         pos => {
                             setPhotoGps({
                                 lat: pos.coords.latitude.toFixed(6),
                                 lng: pos.coords.longitude.toFixed(6),
-                                source: 'Device Location'
+                                isFromFile: false
                             });
+                            setGpsStatusMessage('Tagged with phone live GPS.');
                         },
-                        () => alert('Please enable Location/GPS permission in your browser settings.')
+                        () => alert('Please allow location permission in your phone/browser settings.')
                     );
-                } else {
-                    alert('Geolocation is not supported on this device.');
                 }
             };
 
-            // Multi-Point Canvas Renderer
+            // Canvas Renderer
             useEffect(() => {
                 if (!capturedImage || !canvasRef.current) return;
                 const canvas = canvasRef.current;
@@ -370,7 +366,7 @@
                 img.src = capturedImage;
             }, [capturedImage, points, measureShape]);
 
-            // Spatial Math Calculator
+            // Spatial Math
             const computeMeasurements = (pts, w, h) => {
                 const scopes = {
                     card_3in: 0.28,
@@ -652,7 +648,6 @@
                         {/* 3. AR MEASUREMENT & GOOGLE MAPS LOCATOR */}
                         {activeTab === 'measure' && (
                             <div className="space-y-3 pt-3">
-                                {/* Mode Selector */}
                                 <div className="flex flex-col space-y-2">
                                     <div className="flex space-x-1 bg-slate-200/80 p-1 rounded-full text-xs">
                                         <button
@@ -731,7 +726,6 @@
                                     <input type="file" ref={fileRef} onChange={handleFileImage} accept="image/*" className="hidden" />
                                 </div>
 
-                                {/* Action Bar & Google Maps Button */}
                                 {capturedImage && (
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center text-xs px-1">
@@ -744,13 +738,13 @@
                                             </div>
                                         </div>
 
-                                        {/* INSTANT GOOGLE MAPS CARD */}
-                                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                                            {photoGps ? (
-                                                <>
+                                        {/* EXPLICIT GPS STATUS CARD */}
+                                        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                                            {photoGps && photoGps.isFromFile ? (
+                                                <div className="flex items-center justify-between">
                                                     <div>
-                                                        <div className="text-[10px] text-slate-400 font-semibold uppercase">
-                                                            <i className="fa-solid fa-location-dot text-emerald-500 mr-1"></i> {photoGps.source} Found
+                                                        <div className="text-[11px] text-emerald-600 font-bold">
+                                                            <i className="fa-solid fa-circle-check mr-1"></i> Original Photo GPS Found
                                                         </div>
                                                         <div className="text-xs font-mono font-bold text-slate-800 mt-0.5">
                                                             {photoGps.lat}, {photoGps.lng}
@@ -765,27 +759,43 @@
                                                         <i className="fa-solid fa-map-location-dot"></i>
                                                         <span>Open Map</span>
                                                     </a>
-                                                </>
+                                                </div>
                                             ) : (
-                                                <>
-                                                    <div className="text-xs text-slate-500">
-                                                        <i className="fa-solid fa-location-crosshairs text-orange-500 mr-1"></i>
-                                                        No GPS in photo?
+                                                <div className="space-y-1.5">
+                                                    <div className="text-xs text-slate-600">
+                                                        <i className="fa-solid fa-circle-info text-amber-500 mr-1.5"></i>
+                                                        <span className="text-[11px] font-medium">{gpsStatusMessage || 'No GPS tag found in this photo file.'}</span>
                                                     </div>
-                                                    <button
-                                                        onClick={getLiveGPS}
-                                                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl flex items-center space-x-1 border border-slate-200 transition"
-                                                    >
-                                                        <i className="fa-solid fa-location-arrow text-orange-500"></i>
-                                                        <span>Tag Live GPS</span>
-                                                    </button>
-                                                </>
+                                                    <div className="flex justify-between items-center pt-1 border-t border-slate-100">
+                                                        <span className="text-[10px] text-slate-400">At this location right now?</span>
+                                                        <button
+                                                            onClick={pinLiveGPS}
+                                                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold rounded-lg flex items-center space-x-1 border border-slate-200"
+                                                        >
+                                                            <i className="fa-solid fa-location-crosshairs text-orange-500"></i>
+                                                            <span>Pin Live GPS</span>
+                                                        </button>
+                                                    </div>
+                                                    {photoGps && !photoGps.isFromFile && (
+                                                        <div className="flex justify-between items-center pt-1">
+                                                            <span className="text-xs font-mono font-bold text-slate-800">{photoGps.lat}, {photoGps.lng}</span>
+                                                            <a
+                                                                href={`https://www.google.com/maps?q=${photoGps.lat},${photoGps.lng}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="px-2.5 py-1 bg-orange-500 text-white text-xs font-semibold rounded-lg"
+                                                            >
+                                                                Open Map
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Spatial Results Display */}
+                                {/* Spatial Results */}
                                 {measResult && (
                                     <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm space-y-2.5">
                                         {measResult.type === 'polygon' && (
